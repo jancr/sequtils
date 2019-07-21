@@ -280,4 +280,30 @@ class TestSequenceRange(BaseTestSequence):
         with pytest.raises(ValueError):
             2 - SequenceRange(3, 3)
 
+    def test__iter__(self):
+        for iter_value, expected_value in zip(SequenceRange(5, 10), (5, 10)):
+            assert iter_value == expected_value
+
+    def test__getitem__(self):
+        p = SequenceRange(5, 10)
+        assert p[0] == p[:1][0] == p[:-1][0] == 5
+        assert p[1] == p[1:][0] == p[-1:][0] == 10
+        assert p[:] == p
+        assert type(p[:]) != type(p)
+
+
+class TestMath:
+    def test__add__(self):
+        assert SequenceRange(2, 3) + SequencePoint(2) == SequenceRange(4, 5)
+        assert SequencePoint(2) + SequenceRange(2, 3) == SequenceRange(4, 5)
+        assert SequenceRange(2, 3) + SequencePoint(2) + 5 == SequenceRange(9, 10)
+        assert 5 + SequenceRange(2, 3) + SequencePoint(2) == SequenceRange(9, 10)
+        assert SequenceRange(2, 3) + 5 + SequencePoint(2) == SequenceRange(9, 10)
+
+    def test__sub__(self):
+        assert SequenceRange(5, 20) - SequencePoint(3) == SequenceRange(2, 17)
+        with pytest.raises(ValueError):
+            #20 - 5, 20 - 10 -> 15, 10 = makes no sense!!
+            SequencePoint(20) - SequenceRange(5, 10)
+        assert SequenceRange(10, 15) - SequencePoint(5) == SequenceRange(5, 10)
 
