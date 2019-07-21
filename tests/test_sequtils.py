@@ -138,4 +138,29 @@ class TestProteinLocaton():
         assert p10 > p01 > p_tuple
 
     def test__str__(self):
-        assert str(ProteinLocation(10, 20)) == "ProteinLocation(10, 20)"
+        assert str(ProteinLocation(10, 20)) == "10:20"
+
+    def test__repr__(self):
+        assert repr(ProteinLocation(10, 20)) == "ProteinLocation(10, 20)"
+
+    def test__add__(self):
+        assert ProteinLocation(2, 2) + ProteinLocation(3, 3) == ProteinLocation(5, 5)
+        assert ProteinLocation(2, 2) + 3 == ProteinLocation(5, 5)
+        assert 3 + ProteinLocation(2, 2) == ProteinLocation(5, 5)
+        assert 3 + ProteinLocation(2, 5) == ProteinLocation(5, 8)
+
+    def test__sub__(self):
+        assert ProteinLocation(2, 2) - 1 == ProteinLocation(1, 1)
+        assert ProteinLocation(2, 5) - 1 == ProteinLocation(1, 4)
+        assert 2 - ProteinLocation(1, 1) == ProteinLocation(1, 1)
+
+        with pytest.raises(ValueError):
+            ProteinLocation(2, 2) - ProteinLocation(3, 3)
+        with pytest.raises(ValueError):
+            ProteinLocation(2, 2) - ProteinLocation(1, 3)
+        with pytest.raises(ValueError):
+            ProteinLocation(2, 2) - 3
+        with pytest.raises(ValueError):
+            2 - ProteinLocation(3, 3)
+
+
