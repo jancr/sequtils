@@ -74,6 +74,7 @@ class BaseSequenceLocation:
     def __rsub__(self, other):
         return self.__class__(other, validate=False) - self
 
+
 class SequencePoint(BaseSequenceLocation):
     """
     helper class that converts between "normal" sequence numbers and pythons equivalent
@@ -89,11 +90,14 @@ class SequencePoint(BaseSequenceLocation):
     """
 
     def __init__(self, position, *, validate=True):
-        if isinstance(position, SequenceRange):
-            if len(position) != 1:
-                raise("can only Convert {} to {} if len({}) = 1".format(
-                    type(position), type(self), type(position)))
-            position = position.pos.start
+        if isinstance(position, self.__class__.mro()[1]):  # isinstance of parent
+            if isinstance(position, self.__class__):
+                position = position.pos
+            if isinstance(position, SequenceRange):
+                if len(position) != 1:
+                    raise("can only Convert {} to {} if len({}) = 1".format(
+                        type(position), type(self), type(position)))
+                position = position.pos.start
 
         self._pos = int(position)
         if self.pos < 1:
@@ -170,14 +174,16 @@ class SequenceRange(BaseSequenceLocation):
 
     def __init__(self, start, stop=None, seq=None, protein_sequence=None, *, validate=True):
         """sequence cordinate, counting from 1, with inclusive stop"""
-
-        if isinstance(start, SequencePoint):
-            start = start.pos
+        if isinstance(start, self.__class__.mro()[1]):  # isinstance of parent
+            if isinstance(start, self.__class__):
+                start, stop = start.pos
+            elif isinstance(start, SequencePoint):
+                start = start.pos
+        if isinstance(stop, SequencePoint):
+            stop = stop.pos
 
         if stop is None:
             stop = start
-        elif isinstance(stop, SequencePoint):
-            stop = stop.pos
 
         self._pos = _Pos(int(start), int(stop)) 
         if validate:

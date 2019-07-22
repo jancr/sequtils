@@ -71,6 +71,9 @@ class TestSequencePoint(BaseTestSequence):
         with pytest.raises(ValueError):
             SequencePoint(-10)
 
+        # ensure it can cast itself, just like int(int(1)) works
+        assert SequencePoint(SequencePoint(1)) == SequencePoint(1)
+
         # all peptides
         for (start, stop, seq) in glucagon_peptides:
             self._assert(SequencePoint(start), SequencePoint(stop), seq)
@@ -190,6 +193,9 @@ class TestSequenceRange(BaseTestSequence):
             SequenceRange(10, 0)
         with pytest.raises(ValueError):
             SequenceRange(15, 10)
+
+        # ensure it can cast itself, just like int(int(1)) works
+        assert SequenceRange(SequenceRange(1)) == SequenceRange(1)
 
         # all peptides
         for (start, stop, seq) in glucagon_peptides:
@@ -330,7 +336,12 @@ class TestSequenceRange(BaseTestSequence):
         with pytest.raises(AttributeError):
             s.slice = (1,2)
 
-class TestMath:
+class TestInteroperability:
+    def test_conversion(self):
+        assert SequenceRange(1, 2) == SequenceRange(SequencePoint(1), SequencePoint(2))
+        assert SequenceRange(1, 2) == SequenceRange(SequencePoint(1), 2)
+        assert SequenceRange(1, 2) == SequenceRange(1, SequencePoint(2))
+
     def test__add__(self):
         assert SequenceRange(2, 3) + SequencePoint(2) == SequenceRange(4, 5)
         assert SequencePoint(2) + SequenceRange(2, 3) == SequenceRange(4, 5)
