@@ -117,7 +117,7 @@ class SequencePoint(BaseSequenceLocation):
         if isinstance(other, self.__class__):
             return self.pos < other.pos
         try:
-            other = self.__class__(other)
+            other = self.__class__(other, validate=False)
             return self.pos < other.pos
         except:
             raise TypeError("cannot compare type {} and {}".format(type(self), type(other)))
@@ -287,3 +287,21 @@ class SequenceRange(BaseSequenceLocation):
     @property
     def slice(self):
         return self._slice
+
+    def _contains(self, pos):
+        return self.pos.start <= pos <= self.pos.stop
+
+    def __contains__(self, item):
+        if isinstance(item, SequencePoint):
+            return self._contains(item.pos)
+        elif isinstance(item, self.__class__):
+            return self._contains(item.pos.start) and self._contains(item.pos.stop)
+        elif isinstance(item, abc.Sized) and isinstance(item, abc.Iterable):
+            return self._contains(item[0]) and self._contains(item[1])
+        try:
+            return self._contains(SequencePoint(item))
+        except ValueError:
+            return False
+
+
+

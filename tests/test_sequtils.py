@@ -336,6 +336,16 @@ class TestSequenceRange(BaseTestSequence):
         with pytest.raises(AttributeError):
             s.slice = (1,2)
 
+    def test__contains__(self):
+        peptide = SequenceRange(5, 20)
+        assert SequencePoint(5) in peptide
+        assert 5 in peptide
+        assert SequencePoint(10) in peptide
+        assert SequencePoint(20) in peptide
+        assert 20 in peptide
+        assert 21 not in peptide
+        assert SequencePoint(4) not in peptide
+
 class TestInteroperability:
     def test_conversion(self):
         assert SequenceRange(1, 2) == SequenceRange(SequencePoint(1), SequencePoint(2))
