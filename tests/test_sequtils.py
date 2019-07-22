@@ -39,9 +39,9 @@ def glucagon_peptides():
 class BaseTestSequence:
     #              1234567890
     protein_seq = "ELVISLIVES"
-    pep_seq     =   "VISL"
-    pep_start   =    3
-    pep_stop     =       6
+    pep_seq     =      "LIVE"
+    pep_start   =       6 
+    pep_stop     =         9
 
     def _assert_hash(self, my_set, item, items_before, items_after):
         assert len(my_set) == items_before
@@ -107,6 +107,11 @@ class TestSequencePoint(BaseTestSequence):
         assert sl != 5
         assert 5 != sl
 
+        assert not 5 < sl5
+        assert not 5 > sl5
+        assert 5 <= sl5
+        assert 5 >= sl5
+
         with pytest.raises(TypeError):
             sl < "Wrong type!!"
         with pytest.raises(TypeError):
@@ -114,10 +119,10 @@ class TestSequencePoint(BaseTestSequence):
         with pytest.raises(TypeError):
             sl > "Wrong type!!"
 
-        assert sl1 < sl5 < sl10
-        assert sl10 > sl5 > sl1
-        assert sl1 < 5 < sl10
-        assert sl10 > 5 > sl1
+        assert sl1 < sl5 < sl10 and sl1 <= sl5 <= sl10
+        assert sl10 > sl5 > sl1 and sl10 >= sl5 >= sl1
+        assert sl1 < 5 < sl10 and sl1 <= 5 <= sl10
+        assert sl10 > 5 > sl1 and sl10 >= 5 >= sl1
 
     def test__str__(self):
         assert str(SequencePoint(10)) == str(10)
@@ -157,6 +162,9 @@ class TestSequencePoint(BaseTestSequence):
         with pytest.raises(AttributeError):
             s.index = 2
 
+        assert s is SequencePoint(s)
+        assert s is not SequencePoint(1)
+
 
 ########################################
 # Tests for SequenceRange
@@ -176,8 +184,9 @@ class TestSequenceRange(BaseTestSequence):
 
     def test_init(self, glucagon_peptides, glucagon_seq):
         # simple tests
-        p = SequenceRange(self.pep_start, self.pep_stop)
-        assert (p.pos.start, p.pos.stop) == (self.pep_start, self.pep_stop)
+        p = SequenceRange(self.pep_start, self.pep_stop, protein_sequence=self.protein_seq)
+        assert p.pos == (self.pep_start, self.pep_stop)
+        assert self.pep_seq == p.seq
         self._assert(p, self.pep_seq, self.protein_seq)
 
         # has to be valid numbers!
@@ -205,7 +214,7 @@ class TestSequenceRange(BaseTestSequence):
         # if no stop, then the range is 1 amino acid
         p = SequenceRange(self.pep_start)
         assert p.pos.start == p.pos.stop
-        assert self.protein_seq[p.slice] == 'V'
+        assert self.protein_seq[p.slice] == 'L'
 
     def test_from_index_and_length(self, glucagon_peptides, glucagon_seq):
         # simple tests
@@ -219,8 +228,8 @@ class TestSequenceRange(BaseTestSequence):
             self._assert(p, seq, glucagon_seq)
 
     def test_from_indexes(self, glucagon_peptides, glucagon_seq):
-        pep_start_index = 2
-        pep_stop_index = 5
+        pep_start_index = 5
+        pep_stop_index = 8
         p_index = SequenceRange.from_indexes(pep_start_index, pep_stop_index)
         p = SequenceRange(self.pep_start, self.pep_stop)
         assert p == p_index
@@ -228,8 +237,8 @@ class TestSequenceRange(BaseTestSequence):
         assert self.pep_seq[-1] == self.protein_seq[p_index.index.stop]
 
     def test_from_slices(self, glucagon_peptides, glucagon_seq):
-        pep_start_slice = 2
-        pep_stop_slice = 6
+        pep_start_slice = 5
+        pep_stop_slice = 9
         p_slice = SequenceRange.from_slice(pep_start_slice, pep_stop_slice)
         p_slice2 = SequenceRange.from_slice(slice(pep_start_slice, pep_stop_slice))
         p = SequenceRange(self.pep_start, self.pep_stop)
@@ -273,13 +282,16 @@ class TestSequenceRange(BaseTestSequence):
         with pytest.raises(TypeError):
             p > "Wrong type!!"
 
+        assert not p < p and not p > p
+        assert p <= p and p >= p and p == p
+
         # less/greater or equal
         # (x, y) < (x, y + 1), < (x+1, y)
         assert p00 < p01 < p10
         assert p10 > p01 > p00
 
-        assert p_tuple < p01 < p10
-        assert p10 > p01 > p_tuple
+        assert p_tuple < p01 < p10 and p_tuple <= p01 <= p10
+        assert p10 > p01 > p_tuple and p10 >= p01 >= p_tuple
 
     def test__str__(self):
         assert str(SequenceRange(10, 20)) == "10:20"
@@ -336,15 +348,32 @@ class TestSequenceRange(BaseTestSequence):
         with pytest.raises(AttributeError):
             s.slice = (1,2)
 
+        assert s is SequenceRange(s)
+        assert s is not SequenceRange(1, 2)
+
+    def _in(self, cls, arg, peptide):
+        assert arg in peptide
+        assert cls(arg) in peptide
+
+    def _not_in(self, cls, arg, peptide):
+        assert arg not in peptide
+        assert cls(arg) not in peptide
+
     def test__contains__(self):
         peptide = SequenceRange(5, 20)
-        assert SequencePoint(5) in peptide
-        assert 5 in peptide
-        assert SequencePoint(10) in peptide
-        assert SequencePoint(20) in peptide
-        assert 20 in peptide
-        assert 21 not in peptide
-        assert SequencePoint(4) not in peptide
+        
+        self._in(SequencePoint, 5, peptide)
+        self._in(SequencePoint, 10, peptide)
+        self._in(SequencePoint, 20, peptide)
+        self._not_in(SequencePoint, 4, peptide)
+        self._not_in(SequencePoint, 21, peptide)
+
+        self._in(SequenceRange, (5, 10), peptide)
+        self._in(SequenceRange, (10, 15), peptide)
+        self._in(SequenceRange, (15, 20), peptide)
+        self._not_in(SequenceRange, (1, 5), peptide)
+        self._not_in(SequenceRange, (4, 11), peptide)
+        self._not_in(SequenceRange, (10, 21), peptide)
 
 class TestInteroperability:
     def test_conversion(self):

@@ -16,23 +16,48 @@ _Index = collections.namedtuple("Index", ("start", "stop"))
 class BaseSequenceLocation:
     __metaclass__ = ABCMeta
 
-    # comparason methods, subclasses only need to implement __lt__ and __eq__
-    @abstractmethod
-    def __eq__(self, other):
-        raise NotImplementedError("Please Implement this method")
+    def __new__(cls, arg, *args, **kwargs):
+        if isinstance(arg, cls):
+            # if arg is already of the correct type, then keep it because subclasses are mutable
+            # just like other immutables: x = 213124512421312; x is int(x)
+            return arg
+        return super().__new__(cls)
 
-    @abstractmethod
+    # read only attributes
+    @property
+    def pos(self):
+        return self._pos
+
+    @property
+    def index(self):
+        return self._index
+
     def __lt__(self, other):
-        raise NotImplementedError("Please Implement this method")
+        try:
+            return self.pos < self.__class__(other, validate=False).pos
+        except ValueError:
+            raise TypeError("cannot compare type {} and {}".format(type(self), type(other)))
 
-    def __gt__(self, other):
-        return not self < other
+    def __eq__(self, other):
+        try:
+            return self.pos == self.__class__(other, validate=False).pos
+        except ValueError:
+            return False
 
+    # using only __lt__ and __eq__
     def __le__(self, other):
         return self < other or self == other
 
+    # using only __lt__ and __eq__
     def __ge__(self, other):
-        return self > other or self == other
+        return other < self or self == other
+
+    def __gt__(self, other):
+        #  return other < self
+        return not self <= other
+
+    def __hash__(self):
+        return hash(self.pos)
 
     @abstractmethod
     def _join(self, other, operator):
@@ -80,19 +105,19 @@ class SequencePoint(BaseSequenceLocation):
     helper class that converts between "normal" sequence numbers and pythons equivalent
     # protein:      ELVISLIVES
     #  - positions: 1234567890
-    # peptide:          -----
-    #  - positions      5   9
+    # peptide:           LIVE
+    #  - positions       6  9
 
     seq = "ELVISLIVES"
-    mutation = ProteinLocation(5)
-    mutation.pos  # returns 5
+    mutation = ProteinLocation(6)
+    mutation.pos  # returns 6
     seq[mutation.index]  # "L"
     """
-
+    
     def __init__(self, position, *, validate=True):
         if isinstance(position, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(position, self.__class__):
-                position = position.pos
+                return
             if isinstance(position, SequenceRange):
                 if len(position) != 1:
                     raise("can only Convert {} to {} if len({}) = 1".format(
@@ -113,24 +138,6 @@ class SequencePoint(BaseSequenceLocation):
     def _join(self, other, operator):
         return self.__class__(operator(self.pos, other.pos))
 
-    def __lt__(self, other):
-        if isinstance(other, self.__class__):
-            return self.pos < other.pos
-        try:
-            other = self.__class__(other, validate=False)
-            return self.pos < other.pos
-        except:
-            raise TypeError("cannot compare type {} and {}".format(type(self), type(other)))
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.pos == other.pos
-        try:
-            other = self.__class__(other, validate=False)
-            return self.pos == other.pos
-        except:
-            return False
-
     # other dunders
     def __str__(self):
         return str(self.pos)
@@ -138,17 +145,8 @@ class SequencePoint(BaseSequenceLocation):
     def __repr__(self):
         return "{}({})".format(type(self).__name__, self.pos)
     
-    def __hash__(self):
-        return hash(self.pos)
-
-    # properties, to make it read-only
-    @property
-    def pos(self):
-        return self._pos
-
-    @property
-    def index(self):
-        return self._index
+    def iter_pos(self):
+        yield self.pos
 
 
 class SequenceRange(BaseSequenceLocation):
@@ -156,13 +154,13 @@ class SequenceRange(BaseSequenceLocation):
     helper class that converts between "normal" sequence numbers and pythons equivalent
     # protein:      ELVISLIVES
     #  - positions: 1234567890
-    # peptide:          -----
-    #  - positions      5   9
+    # peptide:           -----
+    #  - positions       6  9
 
     seq = "ELVISLIVES"
-    peptide = SequenceRange(5, 9, seq)
-    peptide.pos  # returns (5, 9)
-    peptide.slice  # slice(4, 9, None)
+    peptide = SequenceRange(6, 9, seq)
+    peptide.pos  # returns (6, 9)
+    peptide.slice  # slice(5, 9, None)
     seq[peptide.slice]  # "LIVE"
     seq[peptide.index.start]  # "L"
     seq[peptide.index.stop]  # "E"
@@ -173,17 +171,28 @@ class SequenceRange(BaseSequenceLocation):
     _str_separator = ':'
 
     def __init__(self, start, stop=None, seq=None, protein_sequence=None, *, validate=True):
-        """sequence cordinate, counting from 1, with inclusive stop"""
+        """
+        sequence cordinate, counting from 1, with inclusive stop
+        viable calls to the constructor includes:
+        SequenceRange(1, 2)
+        SequenceRange(SequencePoint(1), SequencePoint(2))
+        SequenceRange((1, 2))
+        SequenceRange(SequenceRange(1, 2))
+        """
+
         if isinstance(start, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(start, self.__class__):
-                start, stop = start.pos
+                return
+                #  start, stop = start.pos
             elif isinstance(start, SequencePoint):
                 start = start.pos
         if isinstance(stop, SequencePoint):
             stop = stop.pos
-
         if stop is None:
-            stop = start
+            if isinstance(start, abc.Sized) and isinstance(start, abc.Iterable) and len(start) == 2:
+                start, stop = start[:2]
+            else:
+                stop = start
 
         self._pos = _Pos(int(start), int(stop)) 
         if validate:
@@ -196,9 +205,11 @@ class SequenceRange(BaseSequenceLocation):
         self._slice = slice(self.pos.start - 1, self.pos.stop)
 
         if seq:
-            self.seq = seq
+            self._seq = seq
         elif protein_sequence:
-            self.seq = protein_sequence[self.slice]
+            self._seq = protein_sequence[self.slice]
+        else:
+            self._seq = None
 
         self.length = self.pos.stop - self.pos.start + 1
 
@@ -233,27 +244,6 @@ class SequenceRange(BaseSequenceLocation):
     def _join(self, other, operator):
         return self.__class__(operator(self.pos.start, other.pos.start),
                               operator(self.pos.stop, other.pos.stop))
-    def __lt__(self, other):
-        if isinstance(other, self.__class__):
-            return self.pos < other.pos
-        elif isinstance(other, abc.Sized) and isinstance(other, abc.Iterable):
-            if len(other) == 2:
-                return self.pos < other[:2]
-        try:
-            return self < self.__class__(other)
-        except:
-            raise TypeError("cannot compare types {} and {}".format(type(self), type(other)))
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.pos == other.pos
-        elif isinstance(other, abc.Sized) and isinstance(other, abc.Iterable):
-            if len(other) == 2:
-                return self.pos == other[:2]
-        try:
-            return self == self.__class__(other)
-        except:
-            return False
 
     # other dunders
     def __len__(self):
@@ -266,42 +256,39 @@ class SequenceRange(BaseSequenceLocation):
         return "{}({}, {})".format(type(self).__name__, *self.pos)
 
     def __iter__(self):
-        yield self.pos.start
-        yield self.pos.stop
+        yield from self.iter_pos()
+
+    def iter_pos(self):
+        yield from self.pos
 
     def __getitem__(self, item):
         return self.pos[item]
-
-    def __hash__(self):
-        return hash(self.pos)
-
-    # properties, to make it read-only
-    @property
-    def pos(self):
-        return self._pos
-
-    @property
-    def index(self):
-        return self._index
-
-    @property
-    def slice(self):
-        return self._slice
 
     def _contains(self, pos):
         return self.pos.start <= pos <= self.pos.stop
 
     def __contains__(self, item):
-        if isinstance(item, SequencePoint):
-            return self._contains(item.pos)
-        elif isinstance(item, self.__class__):
-            return self._contains(item.pos.start) and self._contains(item.pos.stop)
-        elif isinstance(item, abc.Sized) and isinstance(item, abc.Iterable):
-            return self._contains(item[0]) and self._contains(item[1])
+        if isinstance(item, self.__class__.mro()[0]):
+            return all(map(self._contains, item.iter_pos()))
+        #  if isinstance(item, SequencePoint):
+            #  return self._contains(item.pos)
+        #  elif isinstance(item, self.__class__):
+            #  return self._contains(item.pos.start) and self._contains(item.pos.stop)
         try:
             return self._contains(SequencePoint(item))
-        except ValueError:
-            return False
+        except (ValueError, TypeError):
+            try: 
+                return all(map(self._contains, SequenceRange(item).pos))
+            except ValueError:
+                return False
+        return False
 
+    # properties, to make it read-only
+    @property
+    def slice(self):
+        return self._slice
 
+    @property
+    def seq(self):
+        return self._seq
 
