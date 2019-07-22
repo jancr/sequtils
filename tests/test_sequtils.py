@@ -43,6 +43,11 @@ class BaseTestSequence:
     pep_start   =    3
     pep_stop     =       6
 
+    def _assert_hash(self, my_set, item, items_before, items_after):
+        assert len(my_set) == items_before
+        my_set.add(item)
+        assert len(my_set) == items_after
+
 
 ########################################
 # Tests for SequencePoint
@@ -132,6 +137,22 @@ class TestSequencePoint(BaseTestSequence):
             SequencePoint(2) - SequencePoint(3)
         with pytest.raises(ValueError):
             2 - SequencePoint(3)
+
+    def test__hash__(self):
+        hash(SequencePoint(1))
+        my_set = set()
+        self._assert_hash(my_set, SequencePoint(1), 0, 1)
+        self._assert_hash(my_set, SequencePoint(1), 1, 1)
+        self._assert_hash(my_set, SequencePoint(2), 1, 2)
+        self._assert_hash(my_set, SequencePoint(2), 2, 2)
+        self._assert_hash(my_set, SequencePoint(3), 2, 3)
+
+    def test_immutability(self):
+        s = SequencePoint(1)
+        with pytest.raises(AttributeError):
+            s.pos = 2
+        with pytest.raises(AttributeError):
+            s.index = 2
 
 
 ########################################
@@ -291,6 +312,23 @@ class TestSequenceRange(BaseTestSequence):
         assert p[:] == p
         assert type(p[:]) != type(p)
 
+    def test__hash__(self):
+        hash(SequenceRange(1, 2))
+        my_set = set()
+        self._assert_hash(my_set, SequenceRange(1, 1), 0, 1)
+        self._assert_hash(my_set, SequenceRange(1, 1), 1, 1)
+        self._assert_hash(my_set, SequenceRange(1, 2), 1, 2)
+        self._assert_hash(my_set, SequenceRange(2, 2), 2, 3)
+        self._assert_hash(my_set, SequenceRange(1, 2), 3, 3)
+
+    def test_immutability(self):
+        s = SequenceRange(1, 2)
+        with pytest.raises(AttributeError):
+            s.pos = (1,2)
+        with pytest.raises(AttributeError):
+            s.index = (1,2)
+        with pytest.raises(AttributeError):
+            s.slice = (1,2)
 
 class TestMath:
     def test__add__(self):

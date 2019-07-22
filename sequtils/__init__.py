@@ -95,10 +95,10 @@ class SequencePoint(BaseSequenceLocation):
                     type(position), type(self), type(position)))
             position = position.pos.start
 
-        self.pos = int(position)
+        self._pos = int(position)
         if self.pos < 1:
             raise ValueError("position < 1")
-        self.index = self.pos - 1
+        self._index = self._pos - 1
 
     # alternative constructors
     @classmethod
@@ -133,6 +133,19 @@ class SequencePoint(BaseSequenceLocation):
 
     def __repr__(self):
         return "{}({})".format(type(self).__name__, self.pos)
+    
+    def __hash__(self):
+        return hash(self.pos)
+
+    # properties, to make it read-only
+    @property
+    def pos(self):
+        return self._pos
+
+    @property
+    def index(self):
+        return self._index
+
 
 class SequenceRange(BaseSequenceLocation):
     """
@@ -166,15 +179,15 @@ class SequenceRange(BaseSequenceLocation):
         elif isinstance(stop, SequencePoint):
             stop = stop.pos
 
-        self.pos = _Pos(int(start), int(stop)) 
+        self._pos = _Pos(int(start), int(stop)) 
         if validate:
             if self.pos.start < 1:
                 raise ValueError("start < 1")
             if self.pos.stop < self.pos.start:
                 raise ValueError("stop({}) < start({})".format(self.pos.stop, self.pos.start))
 
-        self.index = _Index(self.pos.start - 1, self.pos.stop - 1)
-        self.slice = slice(self.pos.start - 1, self.pos.stop)
+        self._index = _Index(self.pos.start - 1, self.pos.stop - 1)
+        self._slice = slice(self.pos.start - 1, self.pos.stop)
 
         if seq:
             self.seq = seq
@@ -253,3 +266,18 @@ class SequenceRange(BaseSequenceLocation):
     def __getitem__(self, item):
         return self.pos[item]
 
+    def __hash__(self):
+        return hash(self.pos)
+
+    # properties, to make it read-only
+    @property
+    def pos(self):
+        return self._pos
+
+    @property
+    def index(self):
+        return self._index
+
+    @property
+    def slice(self):
+        return self._slice
