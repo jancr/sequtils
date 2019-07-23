@@ -1,7 +1,7 @@
 
 # core imports
 import collections
-from collections.abc import Sized, Iterable
+from collections.abc import Collection
 from abc import ABCMeta, abstractmethod
 import operator
 
@@ -22,7 +22,7 @@ class BaseSequenceLocation:
             # just like other immutables: x = 213124512421312; x is int(x)
             return arg
         return super().__new__(cls)
-
+    
     # read only attributes
     @property
     def pos(self):
@@ -86,7 +86,7 @@ class BaseSequenceLocation:
 
         if not isinstance(other, self.__class__):
             try:
-                other = self.__class__(other, validate=False)
+                other = self.__class__.from_index(other, validate=False)
             except:
                 return NotImplemented
         return self._join(other, operator)
@@ -98,11 +98,12 @@ class BaseSequenceLocation:
         return self._arithmetic(other, operator.sub)
 
     def __radd__(self, other):
-        return self + other
+        return self._arithmetic(other, operator.add)
+        #  return self.__class__.from_index(other, validate=False) + self
 
     def __rsub__(self, other):
-        return self.__class__(other, validate=False) - self
-
+        # other - self
+        return self.__class__.from_index(other, validate=False) - self
 
 class SequencePoint(BaseSequenceLocation):
     """
@@ -136,12 +137,12 @@ class SequencePoint(BaseSequenceLocation):
 
     # alternative constructors
     @classmethod
-    def from_index(cls, index):
-        return cls(index + 1)
+    def from_index(cls, index, *, validate=True):
+        return cls(index + 1, validate=validate)
 
     # implementation of abstract methods
     def _join(self, other, operator):
-        return self.__class__(operator(self.pos, other.pos))
+        return self.__class__.from_index(operator(self.index, other.index))
 
     # other dunders
     def __str__(self):
@@ -195,7 +196,7 @@ class SequenceRange(BaseSequenceLocation):
         if isinstance(stop, SequencePoint):
             stop = stop.pos
         elif stop is None:
-            if isinstance(start, Sized) and isinstance(start, Iterable) and len(start) == 2:
+            if isinstance(start, Collection) and len(start) == 2:
                 start, stop = start[:2]
             elif seq is not None:
                 stop = self._stop_from_start_and_length(start, len(seq))
@@ -222,6 +223,16 @@ class SequenceRange(BaseSequenceLocation):
         self.length = self.pos.stop - self.pos.start + 1
 
     @classmethod
+    def from_index(cls, start_index, stop_index=None, *, validate=True):
+        if isinstance(start_index, cls.mro()[1]):  # instance of parent
+            return cls(start_index)
+        if isinstance(start_index, Collection) and len(start_index) == 2:
+            start_index, stop_index = start_index
+        if stop_index is None:
+            stop_index = start_index
+        return cls(start_index + 1, stop_index + 1, validate=validate)
+
+    @classmethod
     def _stop_from_start_and_length(cls, start, length):
         return start + length - 1
 
@@ -231,9 +242,9 @@ class SequenceRange(BaseSequenceLocation):
         stop = cls._stop_from_start_and_length(start_index + 1, length)
         return cls(start_index + 1, stop)
 
-    @classmethod
-    def from_indexes(cls, start_index, stop_index):
-        return cls(start_index + 1, stop_index + 1)
+    #  @classmethod
+    #  def from_indexes(cls, start_index, stop_index):
+        #  return cls(start_index + 1, stop_index + 1)
 
     @classmethod
     def from_slice(cls, start_slice, stop_slice=None):
@@ -253,8 +264,8 @@ class SequenceRange(BaseSequenceLocation):
 
     # implementation of abstract methods
     def _join(self, other, operator):
-        return self.__class__(operator(self.pos.start, other.pos.start),
-                              operator(self.pos.stop, other.pos.stop))
+        return self.__class__.from_index(operator(self.index.start, other.index.start),
+                                         operator(self.index.stop, other.index.stop))
 
     # other dunders
     def __len__(self):
