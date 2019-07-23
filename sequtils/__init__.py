@@ -1,7 +1,7 @@
 
 # core imports
 import collections
-from collections import abc
+from collections.abc import Sized, Iterable
 from abc import ABCMeta, abstractmethod
 import operator
 
@@ -31,6 +31,10 @@ class BaseSequenceLocation:
     @property
     def index(self):
         return self._index
+
+    @property
+    def slice(self):
+        return self._slice
 
     def __lt__(self, other):
         try:
@@ -128,6 +132,7 @@ class SequencePoint(BaseSequenceLocation):
         if self.pos < 1:
             raise ValueError("position < 1")
         self._index = self._pos - 1
+        self._slice = slice(self.index, self.index + 1)
 
     # alternative constructors
     @classmethod
@@ -186,11 +191,14 @@ class SequenceRange(BaseSequenceLocation):
                 #  start, stop = start.pos
             elif isinstance(start, SequencePoint):
                 start = start.pos
+
         if isinstance(stop, SequencePoint):
             stop = stop.pos
-        if stop is None:
-            if isinstance(start, abc.Sized) and isinstance(start, abc.Iterable) and len(start) == 2:
+        elif stop is None:
+            if isinstance(start, Sized) and isinstance(start, Iterable) and len(start) == 2:
                 start, stop = start[:2]
+            elif seq is not None:
+                stop = self._stop_from_start_and_length(start, len(seq))
             else:
                 stop = start
 
@@ -205,7 +213,7 @@ class SequenceRange(BaseSequenceLocation):
         self._slice = slice(self.pos.start - 1, self.pos.stop)
 
         if seq:
-            self._seq = seq
+            self._seq = str(seq)
         elif protein_sequence:
             self._seq = protein_sequence[self.slice]
         else:
@@ -213,22 +221,25 @@ class SequenceRange(BaseSequenceLocation):
 
         self.length = self.pos.stop - self.pos.start + 1
 
+    @classmethod
+    def _stop_from_start_and_length(cls, start, length):
+        return start + length - 1
+
     # alternative constructors
     @classmethod
-    def from_index_and_length(cls, start, length):
-        start += 1
-        stop = length + start - 1
-        return cls(start, stop)
+    def from_index_and_length(cls, start_index, length):
+        stop = cls._stop_from_start_and_length(start_index + 1, length)
+        return cls(start_index + 1, stop)
 
     @classmethod
-    def from_indexes(cls, start, stop):
-        return cls(start + 1, stop + 1)
+    def from_indexes(cls, start_index, stop_index):
+        return cls(start_index + 1, stop_index + 1)
 
     @classmethod
-    def from_slice(cls, start, stop=None):
-        if isinstance(start, slice):
-            return cls(start.start + 1, start.stop)
-        return cls(start + 1, stop)
+    def from_slice(cls, start_slice, stop_slice=None):
+        if isinstance(start_slice, slice):
+            return cls(start_slice.start + 1, start_slice.stop)
+        return cls(start_slice + 1, stop_slice)
 
     @classmethod
     def from_sequence(cls, protein_sequence, peptide_sequence):
@@ -270,10 +281,6 @@ class SequenceRange(BaseSequenceLocation):
     def __contains__(self, item):
         if isinstance(item, self.__class__.mro()[0]):
             return all(map(self._contains, item.iter_pos()))
-        #  if isinstance(item, SequencePoint):
-            #  return self._contains(item.pos)
-        #  elif isinstance(item, self.__class__):
-            #  return self._contains(item.pos.start) and self._contains(item.pos.stop)
         try:
             return self._contains(SequencePoint(item))
         except (ValueError, TypeError):
@@ -285,10 +292,7 @@ class SequenceRange(BaseSequenceLocation):
 
     # properties, to make it read-only
     @property
-    def slice(self):
-        return self._slice
-
-    @property
     def seq(self):
         return self._seq
+
 

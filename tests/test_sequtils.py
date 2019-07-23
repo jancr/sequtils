@@ -48,17 +48,53 @@ class BaseTestSequence:
         my_set.add(item)
         assert len(my_set) == items_after
 
+    # math should be index based, ie the Indexes should be added together, and any integer
+    # should be assumed to be an "integer offset"
+    def test__add__(self):
+        # cls(1) has index = 0, pos = 1
+        cls = self.test_class
+        assert cls(1) + cls(1) == cls(1)  # because index 0 + 0 = 0
+        assert cls(1) + 1 == cls(2)  # because index 0 + 1 = 1
+        assert 1 + cls(1) == cls(2)  # because index 1 + 0 = 1
+        assert -1 + cls(2) == cls(1)  # because index -1 + 1 = 0
+        assert cls(2) + cls(2) == cls(3)  # because 1 + 1 = 2
+        assert 10 + cls(2) == cls(12)  # because 10 + 1 = 11
+        assert cls(10) + cls(1) == cls(10)  # because 9 + 0 = 9
+
+    def test__sub__(self):
+        # cls(1) has index = 0, pos = 1
+        cls = self.test_class
+        assert cls(1) - cls(1) == cls(1)  # because index 0 - 0 = 0
+        assert cls(2) - 1 == cls(1)  # because index 1 - 1 = 0
+        assert -1 + cls(1) == cls(2)  # because index 1 + 0 = 1
+        assert cls(2) - cls(2) == cls(1)  # because 1 - 1 = 0
+        assert cls(10) - cls(10) == cls(1)  # because 9 - 9 = 0
+        assert 10 - cls(2) == cls(10)  # because 10 - 1 = 9
+        assert cls(10) - cls(1) == cls(10)  # because 9 - 0 = 9
+
+        # because 1 - 2 = -1 -> index = -1, pos = 0 -> invalid pos
+        with pytest.raises(ValueError):
+            cls(2) - 2  
+        with pytest.raises(ValueError):
+            SequencePoint(2) - SequencePoint(3)
+        with pytest.raises(ValueError):
+            2 - SequencePoint(3)
 
 ########################################
 # Tests for SequencePoint
 ########################################
 class TestSequencePoint(BaseTestSequence):
+    test_class = SequencePoint
+
     def _assert(self, start, stop, pep_seq, protein_seq):
         assert protein_seq[start.index] == pep_seq[0]
         assert protein_seq[start.index+1] == pep_seq[1]
 
         assert protein_seq[stop.index] == pep_seq[-1]
         assert protein_seq[stop.index-1] == pep_seq[-2]
+
+        assert protein_seq[start.slice] == pep_seq[0]
+        assert protein_seq[stop.slice] == pep_seq[-1]
 
     def test_init(self, glucagon_peptides, glucagon_seq):
         # simple tests
@@ -130,22 +166,6 @@ class TestSequencePoint(BaseTestSequence):
     def test__repr__(self):
         assert repr(SequencePoint(10)) == "SequencePoint(10)"
 
-    def test__add__(self):
-        assert SequencePoint(2) + SequencePoint(3) == SequencePoint(5)
-        assert SequencePoint(2) + 3 == SequencePoint(5)
-        assert 3 + SequencePoint(2) == SequencePoint(5)
-
-    def test__sub__(self):
-        assert SequencePoint(2) - 1 == SequencePoint(1)
-        assert 2 - SequencePoint(1) == SequencePoint(1)
-
-        with pytest.raises(ValueError):
-            SequencePoint(2) - 3
-        with pytest.raises(ValueError):
-            SequencePoint(2) - SequencePoint(3)
-        with pytest.raises(ValueError):
-            2 - SequencePoint(3)
-
     def test__hash__(self):
         hash(SequencePoint(1))
         my_set = set()
@@ -170,6 +190,7 @@ class TestSequencePoint(BaseTestSequence):
 # Tests for SequenceRange
 ########################################
 class TestSequenceRange(BaseTestSequence):
+    test_class = SequenceRange
     def _assert(self, p, pep_seq, protein_seq):
         assert protein_seq[p.index.start] == pep_seq[0]
         assert protein_seq[p.index.start+1] == pep_seq[1]
@@ -188,6 +209,9 @@ class TestSequenceRange(BaseTestSequence):
         assert p.pos == (self.pep_start, self.pep_stop)
         assert self.pep_seq == p.seq
         self._assert(p, self.pep_seq, self.protein_seq)
+
+        # pep_stop infered from len(pep_seq)
+        assert p == SequenceRange(self.pep_start, seq=self.pep_seq)
 
         # has to be valid numbers!
         with pytest.raises(ValueError):
@@ -299,25 +323,31 @@ class TestSequenceRange(BaseTestSequence):
     def test__repr__(self):
         assert repr(SequenceRange(10, 20)) == "SequenceRange(10, 20)"
 
-    def test__add__(self):
-        assert SequenceRange(2, 2) + SequenceRange(3, 3) == SequenceRange(5, 5)
-        assert SequenceRange(2, 2) + 3 == SequenceRange(5, 5)
-        assert 3 + SequenceRange(2, 2) == SequenceRange(5, 5)
-        assert 3 + SequenceRange(2, 5) == SequenceRange(5, 8)
+    def test__add__extra(self):
+        # SequenceRange(1,1) has index = (0, 0), pos = (1, 1)
+        assert SequenceRange(1, 1) + SequenceRange(1) == SequenceRange(1, 1)
+        assert SequenceRange(1, 1) + SequenceRange(1, 1) == SequenceRange(1, 1)
+        assert SequenceRange(1, 5) + SequenceRange(1, 1) == SequenceRange(1, 5)
+        assert SequenceRange(1, 5) + 1 == SequenceRange(2, 6)
+        assert 1 + SequenceRange(1, 5) == SequenceRange(2, 6)
+        assert -1 + SequenceRange(2, 6) == SequenceRange(1, 5)
 
-    def test__sub__(self):
-        assert SequenceRange(2, 2) - 1 == SequenceRange(1, 1)
-        assert SequenceRange(2, 5) - 1 == SequenceRange(1, 4)
-        assert 2 - SequenceRange(1, 1) == SequenceRange(1, 1)
+    def test__sub__extra(self):
+        # SequenceRange(1) has index = 0, pos = 1
+        SequenceRange = self.test_class
+        assert SequenceRange(1, 1) - SequenceRange(1) == SequenceRange(1, 1)
+        assert SequenceRange(1, 5) - SequenceRange(1) == SequenceRange(1, 5)
+        assert SequenceRange(2, 3) - 1 == SequenceRange(1, 2)
+        assert -1 + SequenceRange(3, 4) == SequenceRange(2, 3)
+        assert SequenceRange(2, 5) - SequenceRange(2, 5) == SequenceRange(1)
+        assert SequenceRange(2, 5) - SequenceRange(2, 7) == SequenceRange(1, 3)
+        assert SequenceRange(10, 20) - SequenceRange(10, 20) == SequenceRange(1)
 
+        # because 1 - 2 = -1 -> index = -1, pos = 0 -> invalid pos
         with pytest.raises(ValueError):
-            SequenceRange(2, 2) - SequenceRange(3, 3)
+            SequenceRange(3, 20) - 2  
         with pytest.raises(ValueError):
-            SequenceRange(2, 2) - SequenceRange(1, 3)
-        with pytest.raises(ValueError):
-            SequenceRange(2, 2) - 3
-        with pytest.raises(ValueError):
-            2 - SequenceRange(3, 3)
+            SequenceRange(2, 20) - SequenceRange(3)
 
     def test__iter__(self):
         for iter_value, expected_value in zip(SequenceRange(5, 10), (5, 10)):
