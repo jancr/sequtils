@@ -97,6 +97,8 @@ class TestSequencePoint(BaseTestSequence):
         assert protein_seq[start.slice] == pep_seq[0]
         assert protein_seq[stop.slice] == pep_seq[-1]
 
+        assert protein_seq[start.slice.start:stop.slice.stop] == pep_seq
+
     def test_init(self, glucagon_peptides, glucagon_seq):
         # simple tests
         start = SequencePoint(self.pep_start)
@@ -160,6 +162,8 @@ class TestSequencePoint(BaseTestSequence):
         assert sl10 > sl5 > sl1 and sl10 >= sl5 >= sl1
         assert sl1 < 5 < sl10 and sl1 <= 5 <= sl10
         assert sl10 > 5 > sl1 and sl10 >= 5 >= sl1
+        assert 1 < sl5 < 10 and 1 <= sl5 <= 10
+        assert 10 > sl5 > 1 and 10 >= sl5 >=1
 
     def test__str__(self):
         assert str(SequencePoint(10)) == str(10)

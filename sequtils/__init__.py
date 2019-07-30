@@ -1,7 +1,8 @@
 
 # core imports
-import collections
-from collections.abc import Collection
+import sys
+import collections 
+from collections.abc import Sequence
 from abc import ABCMeta, abstractmethod
 import operator
 
@@ -105,6 +106,7 @@ class BaseSequenceLocation:
         # other - self
         return self.__class__.from_index(other, validate=False) - self
 
+
 class SequencePoint(BaseSequenceLocation):
     """
     helper class that converts between "normal" sequence numbers and pythons equivalent
@@ -196,7 +198,7 @@ class SequenceRange(BaseSequenceLocation):
         if isinstance(stop, SequencePoint):
             stop = stop.pos
         elif stop is None:
-            if isinstance(start, Collection) and len(start) == 2:
+            if isinstance(start, Sequence) and len(start) == 2:
                 start, stop = start[:2]
             elif seq is not None:
                 stop = self._stop_from_start_and_length(start, len(seq))
@@ -226,7 +228,7 @@ class SequenceRange(BaseSequenceLocation):
     def from_index(cls, start_index, stop_index=None, *, validate=True):
         if isinstance(start_index, cls.mro()[1]):  # instance of parent
             return cls(start_index)
-        if isinstance(start_index, Collection) and len(start_index) == 2:
+        if isinstance(start_index, Sequence) and len(start_index) == 2:
             start_index, stop_index = start_index
         if stop_index is None:
             stop_index = start_index
@@ -241,10 +243,6 @@ class SequenceRange(BaseSequenceLocation):
     def from_index_and_length(cls, start_index, length):
         stop = cls._stop_from_start_and_length(start_index + 1, length)
         return cls(start_index + 1, stop)
-
-    #  @classmethod
-    #  def from_indexes(cls, start_index, stop_index):
-        #  return cls(start_index + 1, stop_index + 1)
 
     @classmethod
     def from_slice(cls, start_slice, stop_slice=None):
@@ -272,6 +270,8 @@ class SequenceRange(BaseSequenceLocation):
         return self.length
 
     def __str__(self):
+        if self.pos.start == self.pos.stop:
+            return str(self.pos.start)
         return "{}{}{}".format(self.pos.start, self._str_separator, self.pos.stop)
 
     def __repr__(self):
