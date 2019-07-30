@@ -165,6 +165,8 @@ class TestSequencePoint(BaseTestSequence):
         assert 1 < sl5 < 10 and 1 <= sl5 <= 10
         assert 10 > sl5 > 1 and 10 >= sl5 >=1
 
+        assert -1 < sl5 and -1 <= sl5 
+
     def test__str__(self):
         assert str(SequencePoint(10)) == str(10)
 

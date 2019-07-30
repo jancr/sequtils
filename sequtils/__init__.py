@@ -132,7 +132,7 @@ class SequencePoint(BaseSequenceLocation):
                 position = position.pos.start
 
         self._pos = int(position)
-        if self.pos < 1:
+        if self.pos < 1 and validate:
             raise ValueError("position < 1")
         self._index = self._pos - 1
         self._slice = slice(self.index, self.index + 1)
