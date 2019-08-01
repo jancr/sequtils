@@ -18,19 +18,28 @@ TEST_FILES_FOLDER = os.path.abspath(os.path.join(TEST_FOLDER, 'test_files'))
 @pytest.fixture
 def glucagon_seq():
     with open(os.path.join(TEST_FILES_FOLDER, 'glucagon.fasta')) as f:
-        return "".join(f.readlines()[1:])
+        return "".join(line.strip() for line in f.readlines()[1:])
 
 
 @pytest.fixture
 def glucagon_peptides():
     """ all peptides from glucagon as ((start, stop, seq), ..) """
+
+    def get_peptide(f):
+        start, stop = map(int, f.readline().split('|')[-1].split('-'))
+        seq = f.readline().strip()
+        return start, stop, seq
+
     peptides = []
     with open(os.path.join(TEST_FILES_FOLDER, 'glucagon_peptides.fasta')) as f:
-        while f.tell() == os.fstat(f.fileno()).st_size:
-            start, stop = map(int, f.readline().split('|')[-1].split('-'))
-            seq = f.readline().strip()
-            peptides.append((start, stop, seq))
+        while f.tell() != os.fstat(f.fileno()).st_size:
+            peptides.append(get_peptide(f))
     return tuple(peptides)
+
+
+def test_fixtures(glucagon_peptides, glucagon_seq):
+    assert len(glucagon_peptides) == 11
+    assert len(glucagon_seq) == 60 * 3  # full std fasta lines
 
 
 ########################################
@@ -39,9 +48,10 @@ def glucagon_peptides():
 class BaseTestSequence:
     #              1234567890
     protein_seq = "ELVISLIVES"
-    pep_seq     =      "LIVE"
-    pep_start   =       6 
-    pep_stop     =         9
+    #                   ____
+    pep_seq = "LIVE"
+    pep_start = 6
+    pep_stop = 9
 
     def _assert_hash(self, my_set, item, items_before, items_after):
         assert len(my_set) == items_before
@@ -75,11 +85,12 @@ class BaseTestSequence:
 
         # because 1 - 2 = -1 -> index = -1, pos = 0 -> invalid pos
         with pytest.raises(ValueError):
-            cls(2) - 2  
+            cls(2) - 2
         with pytest.raises(ValueError):
             SequencePoint(2) - SequencePoint(3)
         with pytest.raises(ValueError):
             1 - SequencePoint(3)
+
 
 ########################################
 # Tests for SequencePoint
@@ -89,10 +100,10 @@ class TestSequencePoint(BaseTestSequence):
 
     def _assert(self, start, stop, pep_seq, protein_seq):
         assert protein_seq[start.index] == pep_seq[0]
-        assert protein_seq[start.index+1] == pep_seq[1]
+        assert protein_seq[start.index + 1] == pep_seq[1]
 
         assert protein_seq[stop.index] == pep_seq[-1]
-        assert protein_seq[stop.index-1] == pep_seq[-2]
+        assert protein_seq[stop.index - 1] == pep_seq[-2]
 
         assert protein_seq[start.slice] == pep_seq[0]
         assert protein_seq[stop.slice] == pep_seq[-1]
@@ -115,8 +126,8 @@ class TestSequencePoint(BaseTestSequence):
 
         # all peptides
         for (start, stop, seq) in glucagon_peptides:
-            self._assert(SequencePoint(start), SequencePoint(stop), seq)
-        
+            self._assert(SequencePoint(start), SequencePoint(stop), seq, glucagon_seq)
+
     def test_from_index(self, glucagon_peptides, glucagon_seq):
         # simple tests
         index = self.protein_seq.index(self.pep_seq)
@@ -127,9 +138,10 @@ class TestSequencePoint(BaseTestSequence):
         # all peptides
         for (start, stop, seq) in glucagon_peptides:
             index = glucagon_seq.index(seq)
-            start = SequenceRange.from_index(index)
-            stop = SequenceRange.from_index(index + len(seq))
-            self._assert(start, stop, pep_seq, glucagon_seq)
+            start = SequencePoint.from_index(index)
+            # if len(seq) == 1, then start = stop, thus "+ len(seq) - 1"
+            stop = SequencePoint.from_index(index + len(seq) - 1)  
+            self._assert(start, stop, seq, glucagon_seq)
 
     def test_comparisons(self):
         sl = SequencePoint(1)
@@ -163,9 +175,9 @@ class TestSequencePoint(BaseTestSequence):
         assert sl1 < 5 < sl10 and sl1 <= 5 <= sl10
         assert sl10 > 5 > sl1 and sl10 >= 5 >= sl1
         assert 1 < sl5 < 10 and 1 <= sl5 <= 10
-        assert 10 > sl5 > 1 and 10 >= sl5 >=1
+        assert 10 > sl5 > 1 and 10 >= sl5 >= 1
 
-        assert -1 < sl5 and -1 <= sl5 
+        assert -1 < sl5 and -1 <= sl5
 
     def test__str__(self):
         assert str(SequencePoint(10)) == str(10)
@@ -198,12 +210,13 @@ class TestSequencePoint(BaseTestSequence):
 ########################################
 class TestSequenceRange(BaseTestSequence):
     test_class = SequenceRange
+
     def _assert(self, p, pep_seq, protein_seq):
         assert protein_seq[p.index.start] == pep_seq[0]
-        assert protein_seq[p.index.start+1] == pep_seq[1]
+        assert protein_seq[p.index.start + 1] == pep_seq[1]
 
         assert protein_seq[p.index.stop] == pep_seq[-1]
-        assert protein_seq[p.index.stop-1] == pep_seq[-2]
+        assert protein_seq[p.index.stop - 1] == pep_seq[-2]
 
         assert protein_seq[p.slice.start:p.slice.stop] == pep_seq
         assert protein_seq[p.slice] == pep_seq
@@ -288,7 +301,7 @@ class TestSequenceRange(BaseTestSequence):
             SequenceRange.from_sequence('PROTEINSEQ', "PEPTIDESEQ")
 
         for (start, stop, seq) in glucagon_peptides:
-            p = SequenceRange.from_sequence(seq, glucagon_seq)
+            p = SequenceRange.from_sequence(glucagon_seq, seq)
             self._assert(p, seq, glucagon_seq)
 
     def test___len__(self, glucagon_peptides, glucagon_seq):
@@ -355,7 +368,7 @@ class TestSequenceRange(BaseTestSequence):
 
         # because 1 - 2 = -1 -> index = -1, pos = 0 -> invalid pos
         with pytest.raises(ValueError):
-            SequenceRange(2, 20) - 2  
+            SequenceRange(2, 20) - 2
         with pytest.raises(ValueError):
             SequenceRange(2, 20) - SequenceRange(3)
 
@@ -382,11 +395,11 @@ class TestSequenceRange(BaseTestSequence):
     def test_immutability(self):
         s = SequenceRange(1, 2)
         with pytest.raises(AttributeError):
-            s.pos = (1,2)
+            s.pos = (1, 2)
         with pytest.raises(AttributeError):
-            s.index = (1,2)
+            s.index = (1, 2)
         with pytest.raises(AttributeError):
-            s.slice = (1,2)
+            s.slice = (1, 2)
 
         assert s is SequenceRange(s)
         assert s is not SequenceRange(1, 2)
@@ -401,7 +414,7 @@ class TestSequenceRange(BaseTestSequence):
 
     def test__contains__(self):
         peptide = SequenceRange(5, 20)
-        
+
         self._in(SequencePoint, 5, peptide)
         self._in(SequencePoint, 10, peptide)
         self._in(SequencePoint, 20, peptide)
@@ -414,6 +427,7 @@ class TestSequenceRange(BaseTestSequence):
         self._not_in(SequenceRange, (1, 5), peptide)
         self._not_in(SequenceRange, (4, 11), peptide)
         self._not_in(SequenceRange, (10, 21), peptide)
+
 
 class TestInteroperability:
     def test_conversion(self):
@@ -431,7 +445,7 @@ class TestInteroperability:
     def test__sub__(self):
         assert SequenceRange(5, 20) - SequencePoint(3) == SequenceRange(3, 18)
         with pytest.raises(ValueError):
-            #20 - 5, 20 - 10 -> 15, 10 = makes no sense!!
+            # 20 - 5, 20 - 10 -> 15, 10 = makes no sense!!
             SequencePoint(20) - SequenceRange(5, 10)
-        assert SequenceRange(10, 15) - SequencePoint(5) == SequenceRange(6, 11)
 
+        assert SequenceRange(10, 15) - SequencePoint(5) == SequenceRange(6, 11)

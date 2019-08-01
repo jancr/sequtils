@@ -1,7 +1,5 @@
-
 # core imports
-import sys
-import collections 
+import collections
 from collections.abc import Sequence
 from abc import ABCMeta, abstractmethod
 import operator
@@ -23,7 +21,7 @@ class BaseSequenceLocation:
             # just like other immutables: x = 213124512421312; x is int(x)
             return arg
         return super().__new__(cls)
-    
+
     # read only attributes
     @property
     def pos(self):
@@ -72,13 +70,13 @@ class BaseSequenceLocation:
     def _arithmetic(self, other, operator):
         """
         helper method that calls _join, ensures that NotImplemented is returned
-        when a cast fails, this is important to ensure that stuff like the 
+        when a cast fails, this is important to ensure that stuff like the
         following woks:
-            SequencePoint(2) + SequenceRecord(3, 5) 
+            SequencePoint(2) + SequenceRecord(3, 5)
         this works because:
             SequencePoint.__add__ calls
                 SequencePoint.__init__ who raises an ValueError, thus
-            SequencePoint_arthmetic returns NotImplemented, 
+            SequencePoint_arthmetic returns NotImplemented,
                 This signals to the Python Interperter to use
             SequenceRange.__radd__ who calls
                 SequenceRange.__init__, which does not fail :)
@@ -88,7 +86,7 @@ class BaseSequenceLocation:
         if not isinstance(other, self.__class__):
             try:
                 other = self.__class__.from_index(other, validate=False)
-            except:
+            except TypeError:
                 return NotImplemented
         return self._join(other, operator)
 
@@ -120,14 +118,14 @@ class SequencePoint(BaseSequenceLocation):
     mutation.pos  # returns 6
     seq[mutation.index]  # "L"
     """
-    
+
     def __init__(self, position, *, validate=True):
         if isinstance(position, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(position, self.__class__):
                 return
             if isinstance(position, SequenceRange):
                 if len(position) != 1:
-                    raise("can only Convert {} to {} if len({}) = 1".format(
+                    raise TypeError("can only Convert {} to {} if len({}) = 1".format(
                         type(position), type(self), type(position)))
                 position = position.pos.start
 
@@ -152,7 +150,7 @@ class SequencePoint(BaseSequenceLocation):
 
     def __repr__(self):
         return "{}({})".format(type(self).__name__, self.pos)
-    
+
     def iter_pos(self):
         yield self.pos
 
@@ -191,7 +189,6 @@ class SequenceRange(BaseSequenceLocation):
         if isinstance(start, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(start, self.__class__):
                 return
-                #  start, stop = start.pos
             elif isinstance(start, SequencePoint):
                 start = start.pos
 
@@ -205,24 +202,29 @@ class SequenceRange(BaseSequenceLocation):
             else:
                 stop = start
 
-        self._pos = _Pos(int(start), int(stop)) 
+        self._pos = _Pos(int(start), int(stop))
         if validate:
-            if self.pos.start < 1:
-                raise ValueError("start < 1")
-            if self.pos.stop < self.pos.start:
-                raise ValueError("stop({}) < start({})".format(self.pos.stop, self.pos.start))
+            self._validate()
 
         self._index = _Index(self.pos.start - 1, self.pos.stop - 1)
         self._slice = slice(self.pos.start - 1, self.pos.stop)
 
-        if seq:
-            self._seq = str(seq)
-        elif protein_sequence:
-            self._seq = protein_sequence[self.slice]
-        else:
-            self._seq = None
-
+        self._seq = self._get_seq(seq, protein_sequence)
         self.length = self.pos.stop - self.pos.start + 1
+
+    # __init__ helper methods
+    def _get_seq(self, seq, protein_sequence):
+        if seq:
+            return str(seq)
+        elif protein_sequence:
+            return protein_sequence[self.slice]
+        return None
+
+    def _validate(self):
+        if self.pos.start < 1:
+            raise ValueError("start < 1")
+        if self.pos.stop < self.pos.start:
+            raise ValueError("stop({}) < start({})".format(self.pos.stop, self.pos.start))
 
     @classmethod
     def from_index(cls, start_index, stop_index=None, *, validate=True):
@@ -295,7 +297,7 @@ class SequenceRange(BaseSequenceLocation):
         try:
             return self._contains(SequencePoint(item))
         except (ValueError, TypeError):
-            try: 
+            try:
                 return all(map(self._contains, SequenceRange(item).pos))
             except ValueError:
                 return False
@@ -305,5 +307,3 @@ class SequenceRange(BaseSequenceLocation):
     @property
     def seq(self):
         return self._seq
-
-
