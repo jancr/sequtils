@@ -3,6 +3,7 @@ import collections
 from collections.abc import Sequence
 from abc import ABCMeta, abstractmethod
 import operator
+import functools
 
 __slots__ = ("SequencePoint", "SequenceRange")
 
@@ -12,6 +13,7 @@ _Pos = collections.namedtuple("Position", ("start", "stop"))
 _Index = collections.namedtuple("Index", ("start", "stop"))
 
 
+@functools.total_ordering
 class BaseSequenceLocation:
     __metaclass__ = ABCMeta
 
@@ -35,6 +37,13 @@ class BaseSequenceLocation:
     def slice(self):
         return self._slice
 
+    def is_valid(self):
+        try:
+            self.validate()
+            return True
+        except ValueError:
+            return False
+
     def __lt__(self, other):
         try:
             return self.pos < self.__class__(other, validate=False).pos
@@ -45,19 +54,18 @@ class BaseSequenceLocation:
         try:
             return self.pos == self.__class__(other, validate=False).pos
         except ValueError:
-            return False
+            return NotImplemented
 
-    # using only __lt__ and __eq__
-    def __le__(self, other):
-        return self < other or self == other
-
-    # using only __lt__ and __eq__
-    def __ge__(self, other):
-        return other < self or self == other
-
-    def __gt__(self, other):
-        #  return other < self
-        return not self <= other
+    #  # using only __lt__ and __eq__
+    #  def __le__(self, other):
+        #  return self < other or self == other
+#
+    #  # using only __lt__ and __eq__
+    #  def __ge__(self, other):
+        #  return other < self or self == other
+#
+    #  def __gt__(self, other):
+        #  return not self <= other
 
     def __hash__(self):
         return hash(self.pos)
@@ -130,10 +138,14 @@ class SequencePoint(BaseSequenceLocation):
                 position = position.pos.start
 
         self._pos = int(position)
-        if self.pos < 1 and validate:
-            raise ValueError("position < 1")
+        if validate:
+            self.validate()
         self._index = self._pos - 1
         self._slice = slice(self.index, self.index + 1)
+
+    def validate(self):
+        if self.pos < 1:
+            raise ValueError("position < 1")
 
     # alternative constructors
     @classmethod
@@ -142,7 +154,7 @@ class SequencePoint(BaseSequenceLocation):
 
     # implementation of abstract methods
     def _join(self, other, operator):
-        return self.__class__.from_index(operator(self.index, other.index))
+        return self.__class__.from_index(operator(self.index, other.index), validate=False)
 
     # other dunders
     def __str__(self):
@@ -204,7 +216,7 @@ class SequenceRange(BaseSequenceLocation):
 
         self._pos = _Pos(int(start), int(stop))
         if validate:
-            self._validate()
+            self.validate()
 
         self._index = _Index(self.pos.start - 1, self.pos.stop - 1)
         self._slice = slice(self.pos.start - 1, self.pos.stop)
@@ -220,7 +232,7 @@ class SequenceRange(BaseSequenceLocation):
             return protein_sequence[self.slice]
         return None
 
-    def _validate(self):
+    def validate(self):
         if self.pos.start < 1:
             raise ValueError("start < 1")
         if self.pos.stop < self.pos.start:
@@ -265,7 +277,8 @@ class SequenceRange(BaseSequenceLocation):
     # implementation of abstract methods
     def _join(self, other, operator):
         return self.__class__.from_index(operator(self.index.start, other.index.start),
-                                         operator(self.index.stop, other.index.stop))
+                                         operator(self.index.stop, other.index.stop),
+                                         validate=False)
 
     # other dunders
     def __len__(self):
@@ -287,7 +300,7 @@ class SequenceRange(BaseSequenceLocation):
 
     def __iter__(self):
         for pos in range(self.pos.start, self.pos.stop + 1):
-            yield SequencePoint(pos)
+            yield SequencePoint(pos, validate=False)
 
     def __getitem__(self, item):
         return self.pos[item]

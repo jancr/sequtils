@@ -85,11 +85,11 @@ class BaseTestSequence:
 
         # because 1 - 2 = -1 -> index = -1, pos = 0 -> invalid pos
         with pytest.raises(ValueError):
-            cls(2) - 2
+            (cls(2) - 2).validate()
         with pytest.raises(ValueError):
-            SequencePoint(2) - SequencePoint(3)
+            (SequencePoint(2) - SequencePoint(3)).validate()
         with pytest.raises(ValueError):
-            1 - SequencePoint(3)
+            (1 - SequencePoint(3)).validate()
 
 
 ########################################
@@ -368,9 +368,9 @@ class TestSequenceRange(BaseTestSequence):
 
         # because 1 - 2 = -1 -> index = -1, pos = 0 -> invalid pos
         with pytest.raises(ValueError):
-            SequenceRange(2, 20) - 2
+            (SequenceRange(2, 20) - 2).validate()
         with pytest.raises(ValueError):
-            SequenceRange(2, 20) - SequenceRange(3)
+            (SequenceRange(2, 20) - SequenceRange(3)).validate()
 
     def test__iter__(self):
         sr = SequenceRange(5, 10)
@@ -443,28 +443,28 @@ class TestSequenceRange(BaseTestSequence):
         #  item4 = ELVENELVISLIVESANDDIES <--- part=all -> False, part=any -> True
         #  item5 = ------------------D--- <--- part=all -> False, part=any -> False
         #  item6 = ------------------DIES <--- part=all -> False, part=any -> False
+        #  item7 = ----N----------------- <--- part=all -> False, part=any -> False
+        #  item8 = ELVEN----------------- <--- part=all -> False, part=any -> False
 
-        _self = SequenceRange(4, 14)
+        _self = SequenceRange(5, 14)
         item1 = SequencePoint(10)
         item2 = SequenceRange(10, 13)
         item3 = SequenceRange(10, 21)
         item4 = SequenceRange(1, 21)
         item5 = SequenceRange(18, 21)
         item6 = SequenceRange(18, 21)
+        item7 = SequencePoint(4)
+        item8 = SequenceRange(1, 4)
 
-        assert _self.contains(item1, part=all)
-        assert _self.contains(item2, part=all)
-        assert not _self.contains(item3, part=all)
-        assert not _self.contains(item4, part=all)
-        assert not _self.contains(item5, part=all)
-        assert not _self.contains(item6, part=all)
+        for item in (item1, item2):
+            assert _self.contains(item, part=all)
+        for item in (item3, item4, item5, item6, item7, item8):
+            assert not _self.contains(item3, part=all)
 
-        assert _self.contains(item1, part=any)
-        assert _self.contains(item2, part=any)
-        assert _self.contains(item3, part=any)
-        assert _self.contains(item4, part=any)
-        assert not _self.contains(item5, part=any)
-        assert not _self.contains(item6, part=any)
+        for item in (item1, item2, item3, item4):
+            assert _self.contains(item, part=any)
+        for item in (item5, item6, item7, item8):
+            assert not _self.contains(item, part=any)
 
 
 class TestInteroperability:
@@ -484,6 +484,9 @@ class TestInteroperability:
         assert SequenceRange(5, 20) - SequencePoint(3) == SequenceRange(3, 18)
         with pytest.raises(ValueError):
             # 20 - 5, 20 - 10 -> 15, 10 = makes no sense!!
-            SequencePoint(20) - SequenceRange(5, 10)
+            (SequencePoint(20) - SequenceRange(5, 10)).validate()
 
         assert SequenceRange(10, 15) - SequencePoint(5) == SequenceRange(6, 11)
+
+    def test_wierd_stuff(self):
+        assert (SequenceRange(10, 20) - 15).contains(2)
