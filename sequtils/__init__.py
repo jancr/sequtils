@@ -151,8 +151,8 @@ class SequencePoint(BaseSequenceLocation):
     def __repr__(self):
         return "{}({})".format(type(self).__name__, self.pos)
 
-    def iter_pos(self):
-        yield self.pos
+    #  def iter_pos(self):
+        #  yield self.pos
 
 
 class SequenceRange(BaseSequenceLocation):
@@ -279,26 +279,47 @@ class SequenceRange(BaseSequenceLocation):
     def __repr__(self):
         return "{}({}, {})".format(type(self).__name__, *self.pos)
 
-    def __iter__(self):
-        yield from self.iter_pos()
+    #  def __iter__(self):
+        #  yield from self.iter_pos()
 
-    def iter_pos(self):
-        yield from self.pos
+    #  def iter_pos(self):
+        #  yield from self.pos
+
+    def __iter__(self):
+        for pos in range(self.pos.start, self.pos.stop + 1):
+            yield SequencePoint(pos)
 
     def __getitem__(self, item):
         return self.pos[item]
 
-    def _contains(self, pos):
-        return self.pos.start <= pos <= self.pos.stop
+    def _contains(self, sequence_point):
+        "Helper method that checks if a SequencePoint is in self"
+
+        return self.pos.start <= sequence_point.pos <= self.pos.stop
 
     def __contains__(self, item):
+        " returns True if all of item is inside self"
+        return self.contains(item, part=all)
+
+    def contains(self, item, part=all):
+        """
+        Check wheter item is inside 'self'.
+        by default (part=all) all amino acids has to be inside self:
+        by changing to (part=any), then only one of the amino acids have to be inside:
+        self = -----ELVISLIVES
+        item = ----------L----        <--- part=all -> True,  part=any -> True
+        item = ----------LIVE-        <--- part=all -> True,  part=any -> True
+        item = ----------LIVESANDDIES <--- part=all -> False, part=any -> True
+        item = ELVENELVISLIVESANDDIES <--- part=all -> False, part=any -> True
+        """
+
         if isinstance(item, self.__class__.mro()[0]):
-            return all(map(self._contains, item.iter_pos()))
+            return part(map(self._contains, item))
         try:
             return self._contains(SequencePoint(item))
         except (ValueError, TypeError):
             try:
-                return all(map(self._contains, SequenceRange(item).pos))
+                return part(map(self._contains, SequenceRange(item)))
             except ValueError:
                 return False
         return False

@@ -140,7 +140,7 @@ class TestSequencePoint(BaseTestSequence):
             index = glucagon_seq.index(seq)
             start = SequencePoint.from_index(index)
             # if len(seq) == 1, then start = stop, thus "+ len(seq) - 1"
-            stop = SequencePoint.from_index(index + len(seq) - 1)  
+            stop = SequencePoint.from_index(index + len(seq) - 1)
             self._assert(start, stop, seq, glucagon_seq)
 
     def test_comparisons(self):
@@ -247,7 +247,7 @@ class TestSequenceRange(BaseTestSequence):
         with pytest.raises(ValueError):
             SequenceRange(15, 10)
 
-        # ensure it can cast itself, just like int(int(1)) works
+        # ensure it can cast itself, just like int(int(1)) == int(1)
         assert SequenceRange(SequenceRange(1)) == SequenceRange(1)
 
         # all peptides
@@ -373,8 +373,13 @@ class TestSequenceRange(BaseTestSequence):
             SequenceRange(2, 20) - SequenceRange(3)
 
     def test__iter__(self):
-        for iter_value, expected_value in zip(SequenceRange(5, 10), (5, 10)):
-            assert iter_value == expected_value
+        sr = SequenceRange(5, 10)
+        sr_points = list(sr)  # should be equivalent to list(sr.__iter__())
+        assert sr.length == len(sr_points)
+        assert sr_points[0].pos == sr.pos.start
+        assert sr_points[-1].pos == sr.pos.stop
+
+        assert list(SequenceRange(5, 5))[0] == SequencePoint(5)
 
     def test__getitem__(self):
         p = SequenceRange(5, 10)
@@ -427,6 +432,39 @@ class TestSequenceRange(BaseTestSequence):
         self._not_in(SequenceRange, (1, 5), peptide)
         self._not_in(SequenceRange, (4, 11), peptide)
         self._not_in(SequenceRange, (10, 21), peptide)
+
+    def test_contains(self):
+        #          0        10        20
+        #          0123456789012345678901 #
+        #  self  = -----ELVISLIVES        #
+        #  item1 = ----------L----        <--- part=all -> True,  part=any -> True
+        #  item2 = ----------LIVE-        <--- part=all -> True,  part=any -> True
+        #  item3 = ----------LIVESANDDIES <--- part=all -> False, part=any -> True
+        #  item4 = ELVENELVISLIVESANDDIES <--- part=all -> False, part=any -> True
+        #  item5 = ------------------D--- <--- part=all -> False, part=any -> False
+        #  item6 = ------------------DIES <--- part=all -> False, part=any -> False
+
+        _self = SequenceRange(4, 14)
+        item1 = SequencePoint(10)
+        item2 = SequenceRange(10, 13)
+        item3 = SequenceRange(10, 21)
+        item4 = SequenceRange(1, 21)
+        item5 = SequenceRange(18, 21)
+        item6 = SequenceRange(18, 21)
+
+        assert _self.contains(item1, part=all)
+        assert _self.contains(item2, part=all)
+        assert not _self.contains(item3, part=all)
+        assert not _self.contains(item4, part=all)
+        assert not _self.contains(item5, part=all)
+        assert not _self.contains(item6, part=all)
+
+        assert _self.contains(item1, part=any)
+        assert _self.contains(item2, part=any)
+        assert _self.contains(item3, part=any)
+        assert _self.contains(item4, part=any)
+        assert not _self.contains(item5, part=any)
+        assert not _self.contains(item6, part=any)
 
 
 class TestInteroperability:
