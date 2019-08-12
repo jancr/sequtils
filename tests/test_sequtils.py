@@ -152,11 +152,13 @@ class TestSequencePoint(BaseTestSequence):
         # equal / unequal
         assert sl == sl1
         assert sl == 1
-        assert sl == "1"
+        assert sl != "1"
         assert 1 == sl
         assert sl != sl5
         assert sl != 5
         assert 5 != sl
+        assert sl is not None
+        assert sl not in (None, 66)
 
         assert not 5 < sl5
         assert not 5 > sl5
@@ -263,12 +265,12 @@ class TestSequenceRange(BaseTestSequence):
     def test_from_index_and_length(self, glucagon_peptides, glucagon_seq):
         # simple tests
         index = self.protein_seq.index(self.pep_seq)
-        p = SequenceRange.from_index_and_length(index, len(self.pep_seq))
+        p = SequenceRange.from_index(index, length=len(self.pep_seq))
         self._assert(p, self.pep_seq, self.protein_seq)
 
         # all peptides
         for (start, stop, seq) in glucagon_peptides:
-            p = SequenceRange.from_index_and_length(glucagon_seq.index(seq), len(seq))
+            p = SequenceRange.from_index(glucagon_seq.index(seq), length=len(seq))
             self._assert(p, seq, glucagon_seq)
 
     def test_from_index(self, glucagon_peptides, glucagon_seq):
@@ -322,6 +324,9 @@ class TestSequenceRange(BaseTestSequence):
         assert p_tuple == p
         assert p_tuple != p01
         assert p_tuple != 123
+        assert p is not None
+        assert p not in (None, 66)
+        assert p != (str(self.pep_start), str(self.pep_stop))
         with pytest.raises(TypeError):
             p < "Wrong type!!"
         with pytest.raises(TypeError):

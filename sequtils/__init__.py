@@ -45,30 +45,35 @@ class BaseSequenceLocation:
             return False
 
     def __lt__(self, other):
-        try:
-            return self.pos < self.__class__(other, validate=False).pos
-        except ValueError:
-            raise TypeError("cannot compare type {} and {}".format(type(self), type(other)))
+        if self._comparison_cast(other):
+            try:
+                return self.pos < self.__class__(other, validate=False).pos
+            except ValueError:
+                raise TypeError("cannot compare type {} and {}".format(type(self), type(other)))
+        return NotImplemented
 
     def __eq__(self, other):
-        try:
-            return self.pos == self.__class__(other, validate=False).pos
-        except ValueError:
-            return NotImplemented
-
-    #  # using only __lt__ and __eq__
-    #  def __le__(self, other):
-        #  return self < other or self == other
-#
-    #  # using only __lt__ and __eq__
-    #  def __ge__(self, other):
-        #  return other < self or self == other
-#
-    #  def __gt__(self, other):
-        #  return not self <= other
+        if self._comparison_cast(other):
+            try:
+                return self.pos == self.__class__(other, validate=False).pos
+            except (ValueError, TypeError):
+                pass
+        return NotImplemented
 
     def __hash__(self):
         return hash(self.pos)
+
+    #  @abstractmethod
+    def _comparison_cast(self, other):
+        """
+        method used by __eq__ and __lt__ that returns True if you want it to perform implicit
+        casting...
+        SequencePoint(2) == SequencePoint("2")
+        but
+        SequencePoint(2) == "2"
+        only if SequencePoint._comparison_cast(str) returns True
+        """
+        return isinstance(other, (self.__class__, int))
 
     @abstractmethod
     def _join(self, other, operator):
@@ -105,8 +110,7 @@ class BaseSequenceLocation:
         return self._arithmetic(other, operator.sub)
 
     def __radd__(self, other):
-        return self._arithmetic(other, operator.add)
-        #  return self.__class__.from_index(other, validate=False) + self
+        return self + other
 
     def __rsub__(self, other):
         # other - self
@@ -145,7 +149,7 @@ class SequencePoint(BaseSequenceLocation):
 
     def validate(self):
         if self.pos < 1:
-            raise ValueError("position < 1")
+            raise ValueError("position({}) < 1".format(self.pos))
 
     # alternative constructors
     @classmethod
@@ -188,7 +192,8 @@ class SequenceRange(BaseSequenceLocation):
 
     _str_separator = ':'
 
-    def __init__(self, start, stop=None, seq=None, protein_sequence=None, *, validate=True):
+    def __init__(self, start, stop=None, seq=None, protein_sequence=None, *, validate=True,
+                 length=None):
         """
         sequence cordinate, counting from 1, with inclusive stop
         viable calls to the constructor includes:
@@ -196,6 +201,14 @@ class SequenceRange(BaseSequenceLocation):
         SequenceRange(SequencePoint(1), SequencePoint(2))
         SequenceRange((1, 2))
         SequenceRange(SequenceRange(1, 2))
+
+        A "start" has to be always provided, but stop can be infered from the other arguments
+        thus the following creates the same object:
+            SequenceRange(1, 3)
+            SequenceRange((1, 3))
+            SequenceRange(1, seq="ABC")
+            SequenceRange(1, length=3)
+        if stop is None
         """
 
         if isinstance(start, self.__class__.mro()[1]):  # isinstance of parent
@@ -209,6 +222,8 @@ class SequenceRange(BaseSequenceLocation):
         elif stop is None:
             if isinstance(start, Sequence) and len(start) == 2:
                 start, stop = start[:2]
+            elif length is not None:
+                stop = self._stop_from_start_and_length(start, length)
             elif seq is not None:
                 stop = self._stop_from_start_and_length(start, len(seq))
             else:
@@ -239,24 +254,25 @@ class SequenceRange(BaseSequenceLocation):
             raise ValueError("stop({}) < start({})".format(self.pos.stop, self.pos.start))
 
     @classmethod
-    def from_index(cls, start_index, stop_index=None, *, validate=True):
+    def from_index(cls, start_index, stop_index=None, **kwargs):
         if isinstance(start_index, cls.mro()[1]):  # instance of parent
             return cls(start_index)
         if isinstance(start_index, Sequence) and len(start_index) == 2:
             start_index, stop_index = start_index
+
         if stop_index is None:
-            stop_index = start_index
-        return cls(start_index + 1, stop_index + 1, validate=validate)
+            return cls(start_index + 1, **kwargs)
+        return cls(start_index + 1, stop_index + 1, **kwargs)
 
     @classmethod
     def _stop_from_start_and_length(cls, start, length):
         return start + length - 1
 
     # alternative constructors
-    @classmethod
-    def from_index_and_length(cls, start_index, length):
-        stop = cls._stop_from_start_and_length(start_index + 1, length)
-        return cls(start_index + 1, stop)
+    #  @classmethod
+    #  def from_index_and_length(cls, start_index, length):
+        #  stop = cls._stop_from_start_and_length(start_index + 1, length)
+        #  return cls(start_index + 1, stop)
 
     @classmethod
     def from_slice(cls, start_slice, stop_slice=None):
@@ -275,6 +291,13 @@ class SequenceRange(BaseSequenceLocation):
         return cls(start, stop, seq=peptide_sequence, protein_sequence=protein_sequence)
 
     # implementation of abstract methods
+    def _comparison_cast(self, other):
+        if super()._comparison_cast(other):
+            return True
+        elif isinstance(other, Sequence):
+            return len(other) == 2 and isinstance(other[0], int) and isinstance(other[1], int)
+        return False
+
     def _join(self, other, operator):
         return self.__class__.from_index(operator(self.index.start, other.index.start),
                                          operator(self.index.stop, other.index.stop),
