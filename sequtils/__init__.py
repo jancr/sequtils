@@ -1,21 +1,23 @@
 # core imports
-import collections
-from collections.abc import Sequence
-from abc import ABCMeta, abstractmethod
-import operator
-import functools
+import collections as _collections
+from collections.abc import Sequence as _Sequence
+from abc import ABCMeta as _ABCMeta
+from abc import abstractmethod as _abstractmethod
+import operator as _operator
+from functools import total_ordering as _total_ordering
 
 __slots__ = ("SequencePoint", "SequenceRange")
+__all__ = ("SequencePoint", "SequenceRange")
 
 
 # named tuples used by SequenceRange
-_Pos = collections.namedtuple("Position", ("start", "stop"))
-_Index = collections.namedtuple("Index", ("start", "stop"))
+_Pos = _collections.namedtuple("Position", ("start", "stop"))
+_Index = _collections.namedtuple("Index", ("start", "stop"))
 
 
-@functools.total_ordering
+@_total_ordering
 class BaseSequenceLocation:
-    __metaclass__ = ABCMeta
+    __metaclass__ = _ABCMeta
 
     def __new__(cls, arg, *args, **kwargs):
         if isinstance(arg, cls):
@@ -75,7 +77,7 @@ class BaseSequenceLocation:
         """
         return isinstance(other, (self.__class__, int))
 
-    @abstractmethod
+    @_abstractmethod
     def _join(self, other, operator):
         "helper methood, needed to make __add__ and __sub__ work"
         raise NotImplementedError("Please Implement this method")
@@ -104,10 +106,10 @@ class BaseSequenceLocation:
         return self._join(other, operator)
 
     def __add__(self, other):
-        return self._arithmetic(other, operator.add)
+        return self._arithmetic(other, _operator.add)
 
     def __sub__(self, other):
-        return self._arithmetic(other, operator.sub)
+        return self._arithmetic(other, _operator.sub)
 
     def __radd__(self, other):
         return self + other
@@ -220,7 +222,7 @@ class SequenceRange(BaseSequenceLocation):
         if isinstance(stop, SequencePoint):
             stop = stop.pos
         elif stop is None:
-            if isinstance(start, Sequence) and len(start) == 2:
+            if isinstance(start, _Sequence) and len(start) == 2:
                 start, stop = start[:2]
             elif length is not None:
                 stop = self._stop_from_start_and_length(start, length)
@@ -257,7 +259,7 @@ class SequenceRange(BaseSequenceLocation):
     def from_index(cls, start_index, stop_index=None, **kwargs):
         if isinstance(start_index, cls.mro()[1]):  # instance of parent
             return cls(start_index)
-        if isinstance(start_index, Sequence) and len(start_index) == 2:
+        if isinstance(start_index, _Sequence) and len(start_index) == 2:
             start_index, stop_index = start_index
 
         if stop_index is None:
@@ -294,7 +296,7 @@ class SequenceRange(BaseSequenceLocation):
     def _comparison_cast(self, other):
         if super()._comparison_cast(other):
             return True
-        elif isinstance(other, Sequence):
+        elif isinstance(other, _Sequence):
             return len(other) == 2 and isinstance(other[0], int) and isinstance(other[1], int)
         return False
 
