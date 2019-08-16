@@ -15,13 +15,13 @@ TEST_FILES_FOLDER = os.path.abspath(os.path.join(TEST_FOLDER, 'test_files'))
 # fixtures
 # move to conftest when project becomes larger!
 ########################################
-@pytest.fixture
+@pytest.fixture(scope='session')
 def glucagon_seq():
     with open(os.path.join(TEST_FILES_FOLDER, 'glucagon.fasta')) as f:
         return "".join(line.strip() for line in f.readlines()[1:])
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def glucagon_peptides():
     """ all peptides from glucagon as ((start, stop, seq), ..) """
 
@@ -227,7 +227,7 @@ class TestSequenceRange(BaseTestSequence):
 
     def test_init(self, glucagon_peptides, glucagon_seq):
         # simple tests
-        p = SequenceRange(self.pep_start, self.pep_stop, protein_sequence=self.protein_seq)
+        p = SequenceRange(self.pep_start, self.pep_stop, full_sequence=self.protein_seq)
         assert p.pos == (self.pep_start, self.pep_stop)
         assert self.pep_seq == p.seq
         self._assert(p, self.pep_seq, self.protein_seq)
@@ -305,6 +305,17 @@ class TestSequenceRange(BaseTestSequence):
         for (start, stop, seq) in glucagon_peptides:
             p = SequenceRange.from_sequence(glucagon_seq, seq)
             self._assert(p, seq, glucagon_seq)
+
+    def test_from_center_and_window(self, glucagon_peptides, glucagon_seq):
+        # testing 27mers, center = X, window_size = 13 (13 + 13 + 1) = 27
+        #  seq = 'A' * 13 + 'X' + 'A' * 13 +  'C' * (87 - 27 - 13) + 'A' * 13 + 'X' + 'A' * 13
+        assert SequenceRange.from_center_and_window(1, 13) == SequenceRange(1, 14)
+        assert SequenceRange.from_center_and_window(14, 13) == SequenceRange(1, 27)
+        assert SequenceRange.from_center_and_window(14, 13, 20) == SequenceRange(1, 20)
+
+        assert SequenceRange.from_center_and_window(100, 13) == SequenceRange(87, 113)
+        assert SequenceRange.from_center_and_window(100, 13, 113) == SequenceRange(87, 113)
+        assert SequenceRange.from_center_and_window(100, 13, 110) == SequenceRange(87, 110)
 
     def test___len__(self, glucagon_peptides, glucagon_seq):
         assert len(self.pep_seq) == len(SequenceRange(self.pep_start, self.pep_stop))

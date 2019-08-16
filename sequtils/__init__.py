@@ -5,6 +5,7 @@ from abc import ABCMeta as _ABCMeta
 from abc import abstractmethod as _abstractmethod
 import operator as _operator
 from functools import total_ordering as _total_ordering
+import math as _math
 
 __slots__ = ("SequencePoint", "SequenceRange")
 __all__ = ("SequencePoint", "SequenceRange")
@@ -194,7 +195,7 @@ class SequenceRange(BaseSequenceLocation):
 
     _str_separator = ':'
 
-    def __init__(self, start, stop=None, seq=None, protein_sequence=None, *, validate=True,
+    def __init__(self, start, stop=None, seq=None, full_sequence=None, *, validate=True,
                  length=None):
         """
         sequence cordinate, counting from 1, with inclusive stop
@@ -238,23 +239,10 @@ class SequenceRange(BaseSequenceLocation):
         self._index = _Index(self.pos.start - 1, self.pos.stop - 1)
         self._slice = slice(self.pos.start - 1, self.pos.stop)
 
-        self._seq = self._get_seq(seq, protein_sequence)
+        self._seq = self._get_seq(seq, full_sequence)
         self.length = self.pos.stop - self.pos.start + 1
 
-    # __init__ helper methods
-    def _get_seq(self, seq, protein_sequence):
-        if seq:
-            return str(seq)
-        elif protein_sequence:
-            return protein_sequence[self.slice]
-        return None
-
-    def validate(self):
-        if self.pos.start < 1:
-            raise ValueError("start < 1")
-        if self.pos.stop < self.pos.start:
-            raise ValueError("stop({}) < start({})".format(self.pos.stop, self.pos.start))
-
+    # alternate constructors
     @classmethod
     def from_index(cls, start_index, stop_index=None, **kwargs):
         if isinstance(start_index, cls.mro()[1]):  # instance of parent
@@ -267,14 +255,14 @@ class SequenceRange(BaseSequenceLocation):
         return cls(start_index + 1, stop_index + 1, **kwargs)
 
     @classmethod
+    def from_center_and_window(cls, center, window_size, max_length=_math.inf, **kwargs):
+        start = max(1, center - window_size)
+        stop = min(max_length, center + window_size)
+        return cls(start, stop, **kwargs)
+
+    @classmethod
     def _stop_from_start_and_length(cls, start, length):
         return start + length - 1
-
-    # alternative constructors
-    #  @classmethod
-    #  def from_index_and_length(cls, start_index, length):
-        #  stop = cls._stop_from_start_and_length(start_index + 1, length)
-        #  return cls(start_index + 1, stop)
 
     @classmethod
     def from_slice(cls, start_slice, stop_slice=None):
@@ -283,14 +271,28 @@ class SequenceRange(BaseSequenceLocation):
         return cls(start_slice + 1, stop_slice)
 
     @classmethod
-    def from_sequence(cls, protein_sequence, peptide_sequence):
-        start_index = protein_sequence.find(peptide_sequence)
+    def from_sequence(cls, full_sequence, peptide_sequence):
+        start_index = full_sequence.find(peptide_sequence)
         if start_index == -1:
-            raise IndexError("{} not in {}".format(peptide_sequence, protein_sequence))
+            raise IndexError("{} not in {}".format(peptide_sequence, full_sequence))
 
         start = start_index + 1
         stop = start_index + len(peptide_sequence)
-        return cls(start, stop, seq=peptide_sequence, protein_sequence=protein_sequence)
+        return cls(start, stop, seq=peptide_sequence, full_sequence=full_sequence)
+
+    # __init__ helper methods
+    def _get_seq(self, seq, full_sequence):
+        if seq:
+            return str(seq)
+        elif full_sequence:
+            return full_sequence[self.slice]
+        return None
+
+    def validate(self):
+        if self.pos.start < 1:
+            raise ValueError("start < 1")
+        if self.pos.stop < self.pos.start:
+            raise ValueError("stop({}) < start({})".format(self.pos.stop, self.pos.start))
 
     # implementation of abstract methods
     def _comparison_cast(self, other):
