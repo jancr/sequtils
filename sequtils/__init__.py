@@ -368,3 +368,11 @@ class SequenceRange(BaseSequenceLocation):
     @property
     def seq(self):
         return self._seq
+
+    @property
+    def start(self):
+        return SequencePoint(self.pos.start)
+
+    @property
+    def stop(self):
+        return SequencePoint(self.pos.stop)
