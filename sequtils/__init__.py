@@ -6,6 +6,8 @@ from abc import abstractmethod as _abstractmethod
 import operator as _operator
 from functools import total_ordering as _total_ordering
 import math as _math
+from warnings import warn as _warn
+
 
 __slots__ = ("SequencePoint", "SequenceRange")
 __all__ = ("SequencePoint", "SequenceRange")
@@ -142,7 +144,7 @@ class SequencePoint(BaseSequenceLocation):
                 if len(position) != 1:
                     raise TypeError("can only Convert {} to {} if len({}) = 1".format(
                         type(position), type(self), type(position)))
-                position = position.pos.start
+                position = position.start
 
         self._pos = int(position)
         if validate:
@@ -218,10 +220,12 @@ class SequenceRange(BaseSequenceLocation):
             if isinstance(start, self.__class__):
                 return
             elif isinstance(start, SequencePoint):
-                start = start.pos
+                #  start = start.pos
+                start = start
 
         if isinstance(stop, SequencePoint):
-            stop = stop.pos
+            #  stop = stop.pos
+            stop = stop
         elif stop is None:
             if isinstance(start, _Sequence) and len(start) == 2:
                 start, stop = start[:2]
@@ -232,11 +236,14 @@ class SequenceRange(BaseSequenceLocation):
             else:
                 stop = start
 
-        self._pos = _Pos(int(start), int(stop))
+        self._start = SequencePoint(start, validate=validate)
+        self._stop = SequencePoint(stop, validate=validate)
+
+        #  self._pos = _Pos(int(start), int(stop))
         if validate:
             self.validate()
 
-        self._index = _Index(self.pos.start - 1, self.pos.stop - 1)
+        #  self._index = _Index(self.pos.start - 1, self.pos.stop - 1)
         self._slice = slice(self.pos.start - 1, self.pos.stop)
 
         self._seq = self._get_seq(seq, full_sequence)
@@ -262,7 +269,7 @@ class SequenceRange(BaseSequenceLocation):
 
     @classmethod
     def _stop_from_start_and_length(cls, start, length):
-        return start + length - 1
+        return SequencePoint(start + length - 1)
 
     @classmethod
     def from_slice(cls, start_slice, stop_slice=None):
@@ -303,9 +310,9 @@ class SequenceRange(BaseSequenceLocation):
         return False
 
     def _join(self, other, operator):
-        return self.__class__.from_index(operator(self.index.start, other.index.start),
-                                         operator(self.index.stop, other.index.stop),
-                                         validate=False)
+        start = operator(self.start, other.start)
+        stop = operator(self.stop, other.stop)
+        return self.__class__(start, stop, validate=False)
 
     # other dunders
     def __len__(self):
@@ -371,8 +378,18 @@ class SequenceRange(BaseSequenceLocation):
 
     @property
     def start(self):
-        return SequencePoint(self.pos.start)
+        return SequencePoint(self._start)
 
     @property
     def stop(self):
-        return SequencePoint(self.pos.stop)
+        return SequencePoint(self._stop)
+
+    @property
+    def index(self):
+        _warn("index.[start/stop] is depricated, use start.index or stop.index instead")
+        return _Index(self.start.index, self.stop.index)
+
+    @property
+    def pos(self):
+        _warn("pos.[start/stop] is depricated, use pos.index or pos.index instead")
+        return _Pos(self.start.pos, self.stop.pos)
