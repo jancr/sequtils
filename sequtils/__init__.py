@@ -14,8 +14,31 @@ __all__ = ("SequencePoint", "SequenceRange")
 
 
 # named tuples used by SequenceRange
-_Pos = _collections.namedtuple("Position", ("start", "stop"))
-_Index = _collections.namedtuple("Index", ("start", "stop"))
+#  _Pos = _collections.namedtuple("Position", ("start", "stop"))
+#  _Index = _collections.namedtuple("Index", ("start", "stop"))
+
+
+class _Positions(_collections.namedtuple("Pos", ("_1", "_2"), rename=True)):
+    _warning = ("SequenceRange.{name}.{position} is depricated, "
+                "use SequenceRange.{position}.{name} instead")
+
+    @property
+    def start(self):
+        _warn(self._warning.format(name=self.name, position='start'))
+        return self._0
+
+    @property
+    def stop(self):
+        _warn(self._warning.format(name=self.name, position='stop'))
+        return self._1
+
+
+class _Pos(_Positions):
+    name = "pos"
+
+
+class _Index(_Positions):
+    name = "index"
 
 
 @_total_ordering
@@ -386,10 +409,10 @@ class SequenceRange(BaseSequenceLocation):
 
     @property
     def index(self):
-        _warn("index.[start/stop] is depricated, use start.index or stop.index instead")
+        #  _warn("index.[start/stop] is depricated, use start.index or stop.index instead")
         return _Index(self.start.index, self.stop.index)
 
     @property
     def pos(self):
-        _warn("pos.[start/stop] is depricated, use pos.index or pos.index instead")
+        #  _warn("pos.[start/stop] is depricated, use pos.index or pos.index instead")
         return _Pos(self.start.pos, self.stop.pos)
