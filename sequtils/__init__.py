@@ -267,10 +267,10 @@ class SequenceRange(BaseSequenceLocation):
             self.validate()
 
         #  self._index = _Index(self.pos.start - 1, self.pos.stop - 1)
-        self._slice = slice(self.pos.start - 1, self.pos.stop)
+        self._slice = slice(self.start.pos - 1, self.stop.pos)
 
         self._seq = self._get_seq(seq, full_sequence)
-        self.length = self.pos.stop - self.pos.start + 1
+        self.length = self.stop.pos - self.start.pos + 1
 
     # alternate constructors
     @classmethod
@@ -319,10 +319,10 @@ class SequenceRange(BaseSequenceLocation):
         return None
 
     def validate(self):
-        if self.pos.start < 1:
+        if self.start.pos < 1:
             raise ValueError("start < 1")
-        if self.pos.stop < self.pos.start:
-            raise ValueError("stop({}) < start({})".format(self.pos.stop, self.pos.start))
+        if self.stop.pos < self.start.pos:
+            raise ValueError("stop({}) < start({})".format(self.stop.pos, self.start.pos))
 
     # implementation of abstract methods
     def _comparison_cast(self, other):
@@ -342,12 +342,13 @@ class SequenceRange(BaseSequenceLocation):
         return self.length
 
     def __str__(self):
-        if self.pos.start == self.pos.stop:
-            return str(self.pos.start)
-        return "{}{}{}".format(self.pos.start, self._str_separator, self.pos.stop)
+        if self.start == self.stop:  # call SequencePoints.__str__
+            return str(self.start)
+        return "{}{}{}".format(self.start.pos, self._str_separator, self.stop.pos)
 
     def __repr__(self):
-        return "{}({}, {})".format(type(self).__name__, *self.pos)
+        #  return "{}({}, {})".format(type(self).__name__, *self.pos)
+        return "{}({}, {})".format(type(self).__name__, self.start.pos, self.stop.pos)
 
     #  def __iter__(self):
         #  yield from self.iter_pos()
@@ -356,7 +357,7 @@ class SequenceRange(BaseSequenceLocation):
         #  yield from self.pos
 
     def __iter__(self):
-        for pos in range(self.pos.start, self.pos.stop + 1):
+        for pos in range(self.start.pos, self.stop.pos + 1):
             yield SequencePoint(pos, validate=False)
 
     def __getitem__(self, item):
@@ -365,7 +366,7 @@ class SequenceRange(BaseSequenceLocation):
     def _contains(self, sequence_point):
         "Helper method that checks if a SequencePoint is in self"
 
-        return self.pos.start <= sequence_point.pos <= self.pos.stop
+        return self.start.pos <= sequence_point.pos <= self.stop.pos
 
     def __contains__(self, item):
         " returns True if all of item is inside self"

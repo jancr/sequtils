@@ -214,11 +214,11 @@ class TestSequenceRange(BaseTestSequence):
     test_class = SequenceRange
 
     def _assert(self, p, pep_seq, protein_seq):
-        assert protein_seq[p.index.start] == pep_seq[0]
-        assert protein_seq[p.index.start + 1] == pep_seq[1]
+        assert protein_seq[p.start.index] == pep_seq[0]
+        assert protein_seq[p.start.index + 1] == pep_seq[1]
 
-        assert protein_seq[p.index.stop] == pep_seq[-1]
-        assert protein_seq[p.index.stop - 1] == pep_seq[-2]
+        assert protein_seq[p.stop.index] == pep_seq[-1]
+        assert protein_seq[p.stop.index - 1] == pep_seq[-2]
 
         assert protein_seq[p.slice.start:p.slice.stop] == pep_seq
         assert protein_seq[p.slice] == pep_seq
@@ -259,7 +259,7 @@ class TestSequenceRange(BaseTestSequence):
 
         # if no stop, then the range is 1 amino acid
         p = SequenceRange(self.pep_start)
-        assert p.pos.start == p.pos.stop
+        assert p.start.pos == p.stop.pos
         assert self.protein_seq[p.slice] == 'L'
 
     def test_from_index_and_length(self, glucagon_peptides, glucagon_seq):
@@ -282,8 +282,8 @@ class TestSequenceRange(BaseTestSequence):
 
         p = SequenceRange(self.pep_start, self.pep_stop)
         assert p == p_index
-        assert self.pep_seq[0] == self.protein_seq[p_index.index.start]
-        assert self.pep_seq[-1] == self.protein_seq[p_index.index.stop]
+        assert self.pep_seq[0] == self.protein_seq[p_index.start.index]
+        assert self.pep_seq[-1] == self.protein_seq[p_index.stop.index]
 
     def test_from_slices(self, glucagon_peptides, glucagon_seq):
         pep_start_slice = 5
@@ -392,8 +392,8 @@ class TestSequenceRange(BaseTestSequence):
         sr = SequenceRange(5, 10)
         sr_points = list(sr)  # should be equivalent to list(sr.__iter__())
         assert sr.length == len(sr_points)
-        assert sr_points[0].pos == sr.pos.start
-        assert sr_points[-1].pos == sr.pos.stop
+        assert sr_points[0].pos == sr.start.pos
+        assert sr_points[-1].pos == sr.stop.pos
 
         assert list(SequenceRange(5, 5))[0] == SequencePoint(5)
 
