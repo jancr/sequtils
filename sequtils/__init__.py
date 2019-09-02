@@ -386,7 +386,6 @@ class SequenceRange(BaseSequenceLocation):
         "Helper method that checks if a SequencePoint is in self"
         return self.start.pos <= sequence_point.pos <= self.stop.pos
 
-
     # properties, to make it read-only
     @property
     def seq(self):
@@ -407,4 +406,3 @@ class SequenceRange(BaseSequenceLocation):
     @property
     def pos(self):
         return _Pos(self.start.pos, self.stop.pos)
-
