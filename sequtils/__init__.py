@@ -19,18 +19,22 @@ __all__ = ("SequencePoint", "SequenceRange")
 
 
 class _Positions(_collections.namedtuple("Pos", ("_1", "_2"), rename=True)):
-    _warning = ("SequenceRange.{name}.{position} is depricated, "
+    _warning = ("SequenceRange.{name}.{position} is deprecated, "
                 "use SequenceRange.{position}.{name} instead")
 
     @property
     def start(self):
-        _warn(self._warning.format(name=self.name, position='start'))
-        return self._0
+        return self._warn_get('start', self._0)
 
     @property
     def stop(self):
-        _warn(self._warning.format(name=self.name, position='stop'))
-        return self._1
+        return self._warn_get('stop', self._1)
+
+    @classmethod
+    def _warn_get(cls, position, field):
+        msg = cls._warning.format(name=cls.name, position=position)
+        _warn(msg, DeprecationWarning)
+        return field
 
 
 class _Pos(_Positions):
@@ -72,26 +76,6 @@ class BaseSequenceLocation:
         except ValueError:
             return False
 
-    def __lt__(self, other):
-        if self._comparison_cast(other):
-            try:
-                return self.pos < self.__class__(other, validate=False).pos
-            except ValueError:
-                raise TypeError("cannot compare type {} and {}".format(type(self), type(other)))
-        return NotImplemented
-
-    def __eq__(self, other):
-        if self._comparison_cast(other):
-            try:
-                return self.pos == self.__class__(other, validate=False).pos
-            except (ValueError, TypeError):
-                pass
-        return NotImplemented
-
-    def __hash__(self):
-        return hash(self.pos)
-
-    #  @abstractmethod
     def _comparison_cast(self, other):
         """
         method used by __eq__ and __lt__ that returns True if you want it to perform implicit
@@ -102,11 +86,6 @@ class BaseSequenceLocation:
         only if SequencePoint._comparison_cast(str) returns True
         """
         return isinstance(other, (self.__class__, int))
-
-    @_abstractmethod
-    def _join(self, other, operator):
-        "helper methood, needed to make __add__ and __sub__ work"
-        raise NotImplementedError("Please Implement this method")
 
     def _arithmetic(self, other, operator):
         """
@@ -131,6 +110,17 @@ class BaseSequenceLocation:
                 return NotImplemented
         return self._join(other, operator)
 
+    # abstract methods
+    @_abstractmethod
+    def _join(self, other, operator):
+        "helper methood, needed to make __add__ and __sub__ work"
+        raise NotImplementedError("Please Implement this method")
+
+    @_abstractmethod
+    def validate(self):
+        raise NotImplementedError("Please Implement this method")
+
+    #  math dunders
     def __add__(self, other):
         return self._arithmetic(other, _operator.add)
 
@@ -143,6 +133,27 @@ class BaseSequenceLocation:
     def __rsub__(self, other):
         # other - self
         return self.__class__.from_index(other, validate=False) - self
+
+    # comparison dunders
+    def __lt__(self, other):
+        if self._comparison_cast(other):
+            try:
+                return self.pos < self.__class__(other, validate=False).pos
+            except ValueError:
+                raise TypeError("cannot compare type {} and {}".format(type(self), type(other)))
+        return NotImplemented
+
+    def __eq__(self, other):
+        if self._comparison_cast(other):
+            try:
+                return self.pos == self.__class__(other, validate=False).pos
+            except (ValueError, TypeError):
+                pass
+        return NotImplemented
+
+    # other dunders
+    def __hash__(self):
+        return hash(self.pos)
 
 
 class SequencePoint(BaseSequenceLocation):
@@ -175,16 +186,16 @@ class SequencePoint(BaseSequenceLocation):
         self._index = self._pos - 1
         self._slice = slice(self.index, self.index + 1)
 
-    def validate(self):
-        if self.pos < 1:
-            raise ValueError("position({}) < 1".format(self.pos))
-
     # alternative constructors
     @classmethod
     def from_index(cls, index, *, validate=True):
         return cls(index + 1, validate=validate)
 
     # implementation of abstract methods
+    def validate(self):
+        if self.pos < 1:
+            raise ValueError("position({}) < 1".format(self.pos))
+
     def _join(self, other, operator):
         return self.__class__.from_index(operator(self.index, other.index), validate=False)
 
@@ -194,9 +205,6 @@ class SequencePoint(BaseSequenceLocation):
 
     def __repr__(self):
         return "{}({})".format(type(self).__name__, self.pos)
-
-    #  def iter_pos(self):
-        #  yield self.pos
 
 
 class SequenceRange(BaseSequenceLocation):
@@ -243,11 +251,9 @@ class SequenceRange(BaseSequenceLocation):
             if isinstance(start, self.__class__):
                 return
             elif isinstance(start, SequencePoint):
-                #  start = start.pos
                 start = start
 
         if isinstance(stop, SequencePoint):
-            #  stop = stop.pos
             stop = stop
         elif stop is None:
             if isinstance(start, _Sequence) and len(start) == 2:
@@ -262,13 +268,10 @@ class SequenceRange(BaseSequenceLocation):
         self._start = SequencePoint(start, validate=validate)
         self._stop = SequencePoint(stop, validate=validate)
 
-        #  self._pos = _Pos(int(start), int(stop))
         if validate:
             self.validate()
 
-        #  self._index = _Index(self.pos.start - 1, self.pos.stop - 1)
         self._slice = slice(self.start.pos - 1, self.stop.pos)
-
         self._seq = self._get_seq(seq, full_sequence)
         self.length = self.stop.pos - self.start.pos + 1
 
@@ -310,7 +313,6 @@ class SequenceRange(BaseSequenceLocation):
         stop = start_index + len(peptide_sequence)
         return cls(start, stop, seq=peptide_sequence, full_sequence=full_sequence)
 
-    # __init__ helper methods
     def _get_seq(self, seq, full_sequence):
         if seq:
             return str(seq)
@@ -318,13 +320,13 @@ class SequenceRange(BaseSequenceLocation):
             return full_sequence[self.slice]
         return None
 
+    # implementation of abstract methods
     def validate(self):
         if self.start.pos < 1:
             raise ValueError("start < 1")
         if self.stop.pos < self.start.pos:
             raise ValueError("stop({}) < start({})".format(self.stop.pos, self.start.pos))
 
-    # implementation of abstract methods
     def _comparison_cast(self, other):
         if super()._comparison_cast(other):
             return True
@@ -337,7 +339,7 @@ class SequenceRange(BaseSequenceLocation):
         stop = operator(self.stop, other.stop)
         return self.__class__(start, stop, validate=False)
 
-    # other dunders
+    # dunders
     def __len__(self):
         return self.length
 
@@ -347,26 +349,11 @@ class SequenceRange(BaseSequenceLocation):
         return "{}{}{}".format(self.start.pos, self._str_separator, self.stop.pos)
 
     def __repr__(self):
-        #  return "{}({}, {})".format(type(self).__name__, *self.pos)
         return "{}({}, {})".format(type(self).__name__, self.start.pos, self.stop.pos)
-
-    #  def __iter__(self):
-        #  yield from self.iter_pos()
-
-    #  def iter_pos(self):
-        #  yield from self.pos
 
     def __iter__(self):
         for pos in range(self.start.pos, self.stop.pos + 1):
             yield SequencePoint(pos, validate=False)
-
-    def __getitem__(self, item):
-        return self.pos[item]
-
-    def _contains(self, sequence_point):
-        "Helper method that checks if a SequencePoint is in self"
-
-        return self.start.pos <= sequence_point.pos <= self.stop.pos
 
     def __contains__(self, item):
         " returns True if all of item is inside self"
@@ -395,6 +382,11 @@ class SequenceRange(BaseSequenceLocation):
                 return False
         return False
 
+    def _contains(self, sequence_point):
+        "Helper method that checks if a SequencePoint is in self"
+        return self.start.pos <= sequence_point.pos <= self.stop.pos
+
+
     # properties, to make it read-only
     @property
     def seq(self):
@@ -410,10 +402,9 @@ class SequenceRange(BaseSequenceLocation):
 
     @property
     def index(self):
-        #  _warn("index.[start/stop] is depricated, use start.index or stop.index instead")
         return _Index(self.start.index, self.stop.index)
 
     @property
     def pos(self):
-        #  _warn("pos.[start/stop] is depricated, use pos.index or pos.index instead")
         return _Pos(self.start.pos, self.stop.pos)
+

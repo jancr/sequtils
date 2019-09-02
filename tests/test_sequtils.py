@@ -397,12 +397,12 @@ class TestSequenceRange(BaseTestSequence):
 
         assert list(SequenceRange(5, 5))[0] == SequencePoint(5)
 
-    def test__getitem__(self):
-        p = SequenceRange(5, 10)
-        assert p[0] == p[:1][0] == p[:-1][0] == 5
-        assert p[1] == p[1:][0] == p[-1:][0] == 10
-        assert p[:] == p
-        assert type(p[:]) != type(p)
+    #  def test__getitem__(self):
+    #      p = SequenceRange(5, 10)
+    #      assert p[0] == p[:1][0] == p[:-1][0] == 5
+    #      assert p[1] == p[1:][0] == p[-1:][0] == 10
+    #      assert p[:] == p
+    #      assert type(p[:]) != type(p)
 
     def test__hash__(self):
         hash(SequenceRange(1, 2))
@@ -481,6 +481,20 @@ class TestSequenceRange(BaseTestSequence):
             assert _self.contains(item, part=any)
         for item in (item5, item6, item7, item8):
             assert not _self.contains(item, part=any)
+
+    def test_deprecation(self):
+        sr = SequenceRange(1, 2)
+        with pytest.warns(None):
+            sr.pos
+            sr.index
+        with pytest.warns(DeprecationWarning):
+            sr.pos.start
+        with pytest.warns(DeprecationWarning):
+            sr.pos.stop
+        with pytest.warns(DeprecationWarning):
+            sr.index.start
+        with pytest.warns(DeprecationWarning):
+            sr.index.stop
 
 
 class TestInteroperability:
