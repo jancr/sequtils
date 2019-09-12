@@ -1,6 +1,7 @@
 
 # core imports
 import os
+import pickle
 
 # 3rd party imports
 import pytest
@@ -90,6 +91,12 @@ class BaseTestSequence:
             (SequencePoint(2) - SequencePoint(3)).validate()
         with pytest.raises(ValueError):
             (1 - SequencePoint(3)).validate()
+
+    def test_pickle(self):
+        sr = SequenceRange(1, 5)
+        for protocol in range(4):
+            pickle.loads(pickle.dumps(sr, protocol=protocol))
+
 
 
 ########################################
