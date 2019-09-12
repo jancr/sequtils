@@ -155,6 +155,10 @@ class BaseSequenceLocation:
     def __hash__(self):
         return hash(self.pos)
 
+    # needed for pickle protocol 3+
+    def __getnewargs__(self):
+        return (self.pos,)
+
 
 class SequencePoint(BaseSequenceLocation):
     """

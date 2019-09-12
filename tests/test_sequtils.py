@@ -94,9 +94,8 @@ class BaseTestSequence:
 
     def test_pickle(self):
         sr = SequenceRange(1, 5)
-        for protocol in range(4):
+        for protocol in range(5):
             pickle.loads(pickle.dumps(sr, protocol=protocol))
-
 
 
 ########################################
