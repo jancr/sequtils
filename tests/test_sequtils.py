@@ -268,6 +268,13 @@ class TestSequenceRange(BaseTestSequence):
         assert p.start.pos == p.stop.pos
         assert self.protein_seq[p.slice] == 'L'
 
+        # make sure that a new object is created if extra annotations are avalible
+        with_seq = SequenceRange(self.pep_start, self.pep_stop, full_sequence=self.protein_seq)
+        without_seq = SequenceRange(with_seq.start, with_seq.stop)
+        p = SequenceRange(without_seq, seq=with_seq.seq)
+        assert p.seq is not None
+        assert p.seq == with_seq.seq
+
     def test_from_index_and_length(self, glucagon_peptides, glucagon_seq):
         # simple tests
         index = self.protein_seq.index(self.pep_seq)
@@ -429,6 +436,7 @@ class TestSequenceRange(BaseTestSequence):
             s.slice = (1, 2)
 
         assert s is SequenceRange(s)
+        assert s is not SequenceRange(s, seq="TT")
         assert s is not SequenceRange(1, 2)
 
     def _in(self, cls, arg, peptide):

@@ -232,6 +232,18 @@ class SequenceRange(BaseSequenceLocation):
 
     _str_separator = ':'
 
+    #  #  def __new__(cls, arg, *args, **kwargs):
+    def __new__(cls, start, stop=None, seq=None, full_sequence=None, *, validate=True,
+                length=None):
+        # There is a small bug where changing the seq of a object changes it's hash, but does not
+        # change the object... so SequenceRange is not truly imutable :S
+        if isinstance(start, cls) and stop is None and seq is start.seq and full_sequence is None \
+                and length is None:
+            # if arg is already of the correct type, then keep it because subclasses are mutable
+            # just like other immutables: x = 213124512421312; x is int(x)
+            return start
+        return super().__new__(cls, start, stop, seq, full_sequence, validate, length)
+
     def __init__(self, start, stop=None, seq=None, full_sequence=None, *, validate=True,
                  length=None):
         """
@@ -253,21 +265,20 @@ class SequenceRange(BaseSequenceLocation):
 
         if isinstance(start, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(start, self.__class__):
-                return
+                start, stop = start.pos
             elif isinstance(start, SequencePoint):
                 start = start
+        if isinstance(start, _Sequence) and len(start) == 2:
+            if stop is not None:
+                raise ValueError(
+                    "if start is a Sequence (e.g (2, 5), then stop has to be None\n"
+                    " - Thise is ok : SequenceRange(2, 5)\n"
+                    " -             : SequenceRange((2, 5))\n"
+                    " - but not this: SequenceRange((2, 5), 5)\n")
+            start, stop = start[:2]
 
-        if isinstance(stop, SequencePoint):
-            stop = stop
-        elif stop is None:
-            if isinstance(start, _Sequence) and len(start) == 2:
-                start, stop = start[:2]
-            elif length is not None:
-                stop = self._stop_from_start_and_length(start, length)
-            elif seq is not None:
-                stop = self._stop_from_start_and_length(start, len(seq))
-            else:
-                stop = start
+        stop = self._resolve_stop(start, stop, length, seq)
+        self._seq = seq
 
         self._start = SequencePoint(start, validate=validate)
         self._stop = SequencePoint(stop, validate=validate)
@@ -278,6 +289,18 @@ class SequenceRange(BaseSequenceLocation):
         self._slice = slice(self.start.pos - 1, self.stop.pos)
         self._seq = self._get_seq(seq, full_sequence)
         self.length = self.stop.pos - self.start.pos + 1
+
+    def _resolve_stop(self, start, stop, length, seq):
+        if isinstance(stop, SequencePoint):
+            stop = stop
+        elif stop is None:
+            if length is not None:
+                stop = self._stop_from_start_and_length(start, length)
+            elif seq is not None:
+                stop = self._stop_from_start_and_length(start, len(seq))
+            else:
+                stop = start
+        return stop
 
     # alternate constructors
     @classmethod
@@ -410,3 +433,10 @@ class SequenceRange(BaseSequenceLocation):
     @property
     def pos(self):
         return _Pos(self.start.pos, self.stop.pos)
+
+    @classmethod
+    def _hash(cls, pos, seq):
+        return hash((pos, seq))
+
+    def __hash__(self):
+        return self._hash(self.pos, self.seq)
