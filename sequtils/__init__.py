@@ -1,7 +1,7 @@
 # core imports
 import collections as _collections
 from collections.abc import Sequence as _Sequence
-from abc import ABCMeta as _ABCMeta
+#  from abc import ABCMeta as _ABCMeta
 from abc import abstractmethod as _abstractmethod
 import operator as _operator
 from functools import total_ordering as _total_ordering
@@ -47,14 +47,7 @@ class _Index(_Positions):
 
 @_total_ordering
 class BaseSequenceLocation:
-    __metaclass__ = _ABCMeta
-
-    def __new__(cls, arg, *args, **kwargs):
-        if isinstance(arg, cls):
-            # if arg is already of the correct type, then keep it because subclasses are mutable
-            # just like other immutables: x = 213124512421312; x is int(x)
-            return arg
-        return super().__new__(cls)
+    #  __metaclass__ = _ABCMeta
 
     # read only attributes
     @property
@@ -155,10 +148,6 @@ class BaseSequenceLocation:
     def __hash__(self):
         return hash(self.pos)
 
-    # needed for pickle protocol 3+
-    def __getnewargs__(self):
-        return (self.pos,)
-
 
 class SequencePoint(BaseSequenceLocation):
     """
@@ -173,6 +162,13 @@ class SequencePoint(BaseSequenceLocation):
     mutation.pos  # returns 6
     seq[mutation.index]  # "L"
     """
+
+    def __new__(cls, arg, *args, **kwargs):
+        if isinstance(arg, cls):
+            # if arg is already of the correct type, then keep it because subclasses are mutable
+            # just like other immutables: x = 213124512421312; x is int(x)
+            return arg
+        return super().__new__(cls)
 
     def __init__(self, position, *, validate=True):
         if isinstance(position, self.__class__.mro()[1]):  # isinstance of parent
@@ -210,6 +206,10 @@ class SequencePoint(BaseSequenceLocation):
     def __repr__(self):
         return "{}({})".format(type(self).__name__, self.pos)
 
+    # needed for pickle protocol 3+
+    def __getnewargs__(self):
+        return (self.pos,)
+
 
 class SequenceRange(BaseSequenceLocation):
     """
@@ -232,18 +232,6 @@ class SequenceRange(BaseSequenceLocation):
 
     _str_separator = ':'
 
-    #  #  def __new__(cls, arg, *args, **kwargs):
-    def __new__(cls, start, stop=None, seq=None, full_sequence=None, *, validate=True,
-                length=None):
-        # There is a small bug where changing the seq of a object changes it's hash, but does not
-        # change the object... so SequenceRange is not truly imutable :S
-        if isinstance(start, cls) and stop is None and seq is start.seq and full_sequence is None \
-                and length is None:
-            # if arg is already of the correct type, then keep it because subclasses are mutable
-            # just like other immutables: x = 213124512421312; x is int(x)
-            return start
-        return super().__new__(cls, start, stop, seq, full_sequence, validate, length)
-
     def __init__(self, start, stop=None, seq=None, full_sequence=None, *, validate=True,
                  length=None):
         """
@@ -265,6 +253,8 @@ class SequenceRange(BaseSequenceLocation):
 
         if isinstance(start, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(start, self.__class__):
+                if seq is None and full_sequence is None:
+                    seq = start.seq
                 start, stop = start.pos
             elif isinstance(start, SequencePoint):
                 start = start
@@ -364,6 +354,9 @@ class SequenceRange(BaseSequenceLocation):
     def _join(self, other, operator):
         start = operator(self.start, other.start)
         stop = operator(self.stop, other.stop)
+        if other.start == other.stop:
+            # if length is unchanged after math, then keep seq
+            return self.__class__(start, stop, seq=self.seq, validate=False)
         return self.__class__(start, stop, validate=False)
 
     # dunders
@@ -376,7 +369,8 @@ class SequenceRange(BaseSequenceLocation):
         return "{}{}{}".format(self.start.pos, self._str_separator, self.stop.pos)
 
     def __repr__(self):
-        return "{}({}, {})".format(type(self).__name__, self.start.pos, self.stop.pos)
+        #  return "{}({}, {})".format(type(self).__name__, self.start.pos, self.stop.pos)
+        return "{}({}, {}, seq={})".format(type(self).__name__, self.start, self.stop, self.seq)
 
     def __iter__(self):
         for pos in range(self.start.pos, self.stop.pos + 1):
@@ -420,11 +414,11 @@ class SequenceRange(BaseSequenceLocation):
 
     @property
     def start(self):
-        return SequencePoint(self._start)
+        return self._start
 
     @property
     def stop(self):
-        return SequencePoint(self._stop)
+        return self._stop
 
     @property
     def index(self):
@@ -433,6 +427,15 @@ class SequenceRange(BaseSequenceLocation):
     @property
     def pos(self):
         return _Pos(self.start.pos, self.stop.pos)
+
+    def __eq__(self, other):
+        if self._comparison_cast(other):
+            try:
+                other = self.__class__(other, validate=False)
+                return self.pos == other.pos and self.seq == other.seq
+            except (ValueError, TypeError):
+                pass
+        return NotImplemented
 
     @classmethod
     def _hash(cls, pos, seq):

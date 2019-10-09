@@ -273,7 +273,13 @@ class TestSequenceRange(BaseTestSequence):
         without_seq = SequenceRange(with_seq.start, with_seq.stop)
         p = SequenceRange(without_seq, seq=with_seq.seq)
         assert p.seq is not None
-        assert p.seq == with_seq.seq
+        assert p.seq == with_seq.seq == self.pep_seq
+        assert without_seq.seq is None
+
+        # make sure seq is not lost (old bug, should not reapear!)
+        with_seq2 = SequenceRange(with_seq, seq='FAKE')
+        assert with_seq2.seq == 'FAKE'
+        assert with_seq.seq == self.pep_seq
 
     def test_from_index_and_length(self, glucagon_peptides, glucagon_seq):
         # simple tests
@@ -309,7 +315,7 @@ class TestSequenceRange(BaseTestSequence):
         assert self.pep_seq == self.protein_seq[p_slice.slice]
 
     def test_from_sequence(self, glucagon_peptides, glucagon_seq):
-        expected = SequenceRange(self.pep_start, self.pep_stop)
+        expected = SequenceRange(self.pep_start, self.pep_stop, seq=self.pep_seq)
         observed = SequenceRange.from_sequence(self.protein_seq, self.pep_seq)
         assert observed == expected
         with pytest.raises(IndexError):
@@ -373,7 +379,9 @@ class TestSequenceRange(BaseTestSequence):
         assert str(SequenceRange(10, 20)) == "10:20"
 
     def test__repr__(self):
-        assert repr(SequenceRange(10, 20)) == "SequenceRange(10, 20)"
+        assert repr(SequenceRange(10, 20)) == "SequenceRange(10, 20, seq=None)"
+        seq = "A" * 11
+        assert repr(SequenceRange(10, 20, seq=seq)) == "SequenceRange(10, 20, seq={})".format(seq)
 
     def test__add__extra(self):
         # SequenceRange(1,1) has index = (0, 0), pos = (1, 1)
@@ -394,12 +402,29 @@ class TestSequenceRange(BaseTestSequence):
         assert SequenceRange(2, 5) - SequenceRange(2, 5) == SequenceRange(1)
         assert SequenceRange(2, 7) - SequenceRange(2, 5) == SequenceRange(1, 3)
         assert SequenceRange(10, 20) - SequenceRange(10, 20) == SequenceRange(1)
+        assert SequenceRange(10, 20) - SequenceRange(10, 20) == SequenceRange(1)
 
+        # math only validates when forces, otherwise this would result in an error
+        # SequenceRange(10, 20) - 100 + 120
         # because 1 - 2 = -1 -> index = -1, pos = 0 -> invalid pos
+        bad1 = SequenceRange(2, 20) - 2
+        bad2 = SequenceRange(2, 20) - SequenceRange(3)
         with pytest.raises(ValueError):
-            (SequenceRange(2, 20) - 2).validate()
+            bad1.validate()
         with pytest.raises(ValueError):
-            (SequenceRange(2, 20) - SequenceRange(3)).validate()
+            bad2.validate()
+
+    def test__math_seq(self):
+        # simple math should retain the seq
+        evil = SequenceRange(12, 15, seq="EVIL")
+        evil_p2 = SequenceRange(14, 17, seq="EVIL")
+        evil_m2 = SequenceRange(10, 13, seq="EVIL")
+        assert evil + 2 == evil_p2 == 2 + evil
+        assert evil - 2 == evil_m2 == -2 + evil
+
+        # complex math should change seq to None
+        assert (evil + SequenceRange(1, 2)).seq is None
+        assert (evil - SequenceRange(1, 2)).seq is None
 
     def test__iter__(self):
         sr = SequenceRange(5, 10)
@@ -409,13 +434,6 @@ class TestSequenceRange(BaseTestSequence):
         assert sr_points[-1].pos == sr.stop.pos
 
         assert list(SequenceRange(5, 5))[0] == SequencePoint(5)
-
-    #  def test__getitem__(self):
-    #      p = SequenceRange(5, 10)
-    #      assert p[0] == p[:1][0] == p[:-1][0] == 5
-    #      assert p[1] == p[1:][0] == p[-1:][0] == 10
-    #      assert p[:] == p
-    #      assert type(p[:]) != type(p)
 
     def test__hash__(self):
         hash(SequenceRange(1, 2))
@@ -434,10 +452,14 @@ class TestSequenceRange(BaseTestSequence):
             s.index = (1, 2)
         with pytest.raises(AttributeError):
             s.slice = (1, 2)
+        with pytest.raises(AttributeError):
+            s.start = SequencePoint(2)
+        with pytest.raises(AttributeError):
+            s.stop = SequencePoint(2)
 
-        assert s is SequenceRange(s)
-        assert s is not SequenceRange(s, seq="TT")
-        assert s is not SequenceRange(1, 2)
+        #  assert s is SequenceRange(s)
+        #  assert s is not SequenceRange(s, seq="TT")
+        #  assert s is not SequenceRange(1, 2)
 
     def _in(self, cls, arg, peptide):
         assert arg in peptide
