@@ -381,7 +381,8 @@ class TestSequenceRange(BaseTestSequence):
     def test__repr__(self):
         assert repr(SequenceRange(10, 20)) == "SequenceRange(10, 20, seq=None)"
         seq = "A" * 11
-        assert repr(SequenceRange(10, 20, seq=seq)) == "SequenceRange(10, 20, seq={})".format(seq)
+        assert repr(SequenceRange(10, 20, seq=seq)) == \
+            'SequenceRange(10, 20, seq="{}")'.format(seq)
 
     def test__add__extra(self):
         # SequenceRange(1,1) has index = (0, 0), pos = (1, 1)

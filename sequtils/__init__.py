@@ -370,7 +370,9 @@ class SequenceRange(BaseSequenceLocation):
 
     def __repr__(self):
         #  return "{}({}, {})".format(type(self).__name__, self.start.pos, self.stop.pos)
-        return "{}({}, {}, seq={})".format(type(self).__name__, self.start, self.stop, self.seq)
+        if self.seq is None:
+            return '{}({}, {}, seq=None)'.format(type(self).__name__, self.start, self.stop)
+        return '{}({}, {}, seq="{}")'.format(type(self).__name__, self.start, self.stop, self.seq)
 
     def __iter__(self):
         for pos in range(self.start.pos, self.stop.pos + 1):
