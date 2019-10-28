@@ -258,7 +258,8 @@ class SequenceRange(BaseSequenceLocation):
                 start, stop = start.pos
             elif isinstance(start, SequencePoint):
                 start = start
-        if isinstance(start, _Sequence) and len(start) == 2:
+        if isinstance(start, _Sequence) and len(start) == 2 and \
+                not isinstance(start, (bytes, str)):
             if stop is not None:
                 raise ValueError(
                     "if start is a Sequence (e.g (2, 5), then stop has to be None\n"

@@ -533,6 +533,15 @@ class TestSequenceRange(BaseTestSequence):
         with pytest.warns(DeprecationWarning):
             sr.index.stop
 
+    def test_bugs(self):
+        """
+        make sure that bugs do not recure!!
+        """
+
+        # '53' is a abc.Sequecne with length 2, thus is used to be interpeted much like ('5', '3')
+        SequenceRange('53', '63', seq='A' * 11)
+        SequenceRange(b'53', b'63', seq='A' * 11)
+
 
 class TestInteroperability:
     def test_conversion(self):

@@ -2,12 +2,12 @@
 Collection of Classes and functions for working with biological sequences
 
 ## There are two classes
-1. `SequencePoint`, usefull for emulation Mutations, SNPs, PTM's etc, it's two
+1. `SequencePoint`, useful for emulating Mutations, SNPs, PTM's etc., it's two
    most important attributes are:
     - `SequencePoint.pos`, the human readable number, counting from 1
     - `SequencePoint.index`, the python readable number counting from 0
 	
-2. `SequenedRange`, usefull for emulating Proteins, domains, secondary structure etc.
+2. `SequenedRange`, useful for emulating Proteins, domains, secondary structure etc.
     - Its 3 most important attributes are:
         - `SequenceRange.start` is a `SequencePoint` pointing to the first amino acid
         - `SequenceRange.stop` is a `SequencePoint` pointing to the last amino acid
@@ -18,7 +18,7 @@ Collection of Classes and functions for working with biological sequences
 
 ## Base API examples
 
-lets make glucagon
+Lets make Glucagon
 
 ```
 In [1]: from sequtils import SequenceRange, SequencePoint
@@ -54,7 +54,7 @@ In [7]: glucagon_sequence[glp1.start.index] == glp1.seq[0]
 Out[7]: True
 
 In [7]: glp1.stop
-Out[7]: SequencePoint)(127)
+Out[7]: SequencePoint(127)
 
 In [8]: glucagon_sequence[glp1.stop.index] == glp1.seq[-1]
 Out[8]: True
@@ -78,7 +78,6 @@ GLP-1 is famous for having a canonical G\[KR\]\[KR\] motif, this motif is the 3
 N-terminal flaking amino acids, let's find it
 
 ```
-motif = S
 In [12]: motif = SequenceRange(1 + glp1.pos.stop, 3 + glp1.pos.stop)
 
 In [13]: glucagon.seq[motif.slice]
@@ -125,17 +124,17 @@ In [19]: SequenceRange(2, 5, seq="EVIL") + SequenceRange(3, 6)
 Out[19]: SequenceRange(4, 10, seq=None)
 ```
 
-if you add numbers or tuples, the code will assume that those are indexes,
+If you add numbers or tuples, the code will assume that those are indexes,
 thus the following 3 all gives the GRR motif by moving `glp1.stop` by `(1, 3)`
 
-create new object moving `glp1.stop`
+Create new object moving `glp1.stop`
 
 ```
 In [20]: SequenceRange(1 + glp1.stop, 3 + glp1.stop)
 Out[20]: SequenceRange(128, 130, seq=None)
 ```
 
-create new object via math, here we perform `SequenceRange` + `SequencePoint`
+Create new object via math, here we perform `SequenceRange` + `SequencePoint`
 
 ```
 In [20]: glp1.stop + SequenceRange.from_index(1, 3)
@@ -145,7 +144,7 @@ In [21]: glp1.stop + SequenceRange(2, 4)
 Out[21]: SequenceRange(128, 130, seq=None)
 ```
 
-convert `SequencePoint` to `SequenceRange` and then add an offset tuple, *note*
+Convert `SequencePoint` to `SequenceRange` and then add an offset tuple, *note*
 that `SequencePoint` only knows 'scalar' math, so we have to ether convert it
 to a `SequenceRange` as here, or convert the `(1, 3)` tuple to a `SequnceRange`
 as we did above
