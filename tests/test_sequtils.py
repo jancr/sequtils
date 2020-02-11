@@ -281,6 +281,15 @@ class TestSequenceRange(BaseTestSequence):
         assert with_seq2.seq == 'FAKE'
         assert with_seq.seq == self.pep_seq
 
+        # make sure to throw warnings if seq or full_sequence are mallformed
+        with pytest.raises(ValueError):  # seq to short
+            SequenceRange(1, 10, seq='AAA')
+        with pytest.raises(ValueError):  # seq to long
+            SequenceRange(1, 10, seq='A' * 20)
+
+        with pytest.raises(ValueError):  # full_sequence to short
+            SequenceRange(1, 10, full_sequence='AAA')
+
     def test_from_index_and_length(self, glucagon_peptides, glucagon_seq):
         # simple tests
         index = self.protein_seq.index(self.pep_seq)

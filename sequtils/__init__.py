@@ -279,7 +279,6 @@ class SequenceRange(BaseSequenceLocation):
 
         self._slice = slice(self.start.pos - 1, self.stop.pos)
         self._seq = self._get_seq(seq, full_sequence)
-        self.length = self.stop.pos - self.start.pos + 1
 
     def _resolve_stop(self, start, stop, length, seq):
         if isinstance(stop, SequencePoint):
@@ -333,10 +332,17 @@ class SequenceRange(BaseSequenceLocation):
 
     def _get_seq(self, seq, full_sequence):
         if seq:
-            return str(seq)
+            seq = str(seq)
+            if len(seq) != len(self):
+                msg = "The sequence {} length does not match the one implied by {}"
+                raise ValueError(msg.format(full_sequence, self))
         elif full_sequence:
-            return full_sequence[self.slice]
-        return None
+            seq = full_sequence[self.slice]
+            if len(seq) != len(self):
+                msg = "The sequence {} is to short to contain {}"
+                raise ValueError(msg.format(full_sequence, self))
+        return seq
+        #  return None
 
     # implementation of abstract methods
     def validate(self):
@@ -430,6 +436,10 @@ class SequenceRange(BaseSequenceLocation):
     @property
     def pos(self):
         return _Pos(self.start.pos, self.stop.pos)
+
+    @property
+    def length(self):
+        return self.stop.pos - self.start.pos + 1
 
     def __eq__(self, other):
         if self._comparison_cast(other):
