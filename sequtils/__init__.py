@@ -7,10 +7,16 @@ import operator as _operator
 from functools import total_ordering as _total_ordering
 import math as _math
 from warnings import warn as _warn
-
+import pathlib as _pathlib
 
 __slots__ = ("SequencePoint", "SequenceRange")
 __all__ = ("SequencePoint", "SequenceRange")
+__doc__ = ""
+
+_readme_file = _pathlib.Path(__file__).parent.parent / 'README.rst'
+if _readme_file.exists():
+    with _readme_file.open() as _f:
+        __doc__ = _f.read()
 
 
 # named tuples used by SequenceRange
@@ -88,12 +94,11 @@ class BaseSequenceLocation:
             SequencePoint(2) + SequenceRecord(3, 5)
         this works because:
             SequencePoint.__add__ calls
-                SequencePoint.__init__ who raises an ValueError, thus
+                SequencePoint.__init__ who raises an TypeError, thus
             SequencePoint_arthmetic returns NotImplemented,
                 This signals to the Python Interperter to use
-            SequenceRange.__radd__ who calls
-                SequenceRange.__init__, which does not fail :)
-                    because you can convert Points to Ranges but not vice versa!
+            SequenceRange.__radd__ 
+                which works, because you can convert Points to Ranges but not vice versa!
         """
 
         if not isinstance(other, self.__class__):
@@ -232,7 +237,7 @@ class SequenceRange(BaseSequenceLocation):
 
     _str_separator = ':'
 
-    def __init__(self, start, stop=None, seq=None, full_sequence=None, *, validate=True,
+    def __init__(self, start, stop=None, seq=None, full_sequence=None, *, validate=True,  # noqa
                  length=None):
         """
         sequence cordinate, counting from 1, with inclusive stop
@@ -267,6 +272,8 @@ class SequenceRange(BaseSequenceLocation):
                     " -             : SequenceRange((2, 5))\n"
                     " - but not this: SequenceRange((2, 5), 5)\n")
             start, stop = start[:2]
+        elif isinstance(start, str) and self._str_separator in start and stop is None:
+            start, stop = map(int, start.split(':'))
 
         stop = self._resolve_stop(start, stop, length, seq)
         self._seq = seq
@@ -303,6 +310,14 @@ class SequenceRange(BaseSequenceLocation):
         if stop_index is None:
             return cls(start_index + 1, **kwargs)
         return cls(start_index + 1, stop_index + 1, **kwargs)
+
+    @classmethod
+    def _from_string(cls, string):
+        if cls._str_separator in string:
+            start, stop = map(SequencePoint, string.split(cls._str_separator))
+        else:
+            start = stop = SequencePoint(string, validate=False)
+        return start, stop
 
     @classmethod
     def from_center_and_window(cls, center, window_size, max_length=_math.inf, **kwargs):

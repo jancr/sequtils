@@ -7,6 +7,7 @@ import pickle
 import pytest
 
 # local imports
+import sequtils
 from sequtils import SequencePoint, SequenceRange
 
 TEST_FOLDER = os.path.abspath(os.path.dirname(__file__))
@@ -133,6 +134,8 @@ class TestSequencePoint(BaseTestSequence):
         # all peptides
         for (start, stop, seq) in glucagon_peptides:
             self._assert(SequencePoint(start), SequencePoint(stop), seq, glucagon_seq)
+
+        assert SequencePoint(10) == SequencePoint('10')
 
     def test_from_index(self, glucagon_peptides, glucagon_seq):
         # simple tests
@@ -267,6 +270,8 @@ class TestSequenceRange(BaseTestSequence):
         p = SequenceRange(self.pep_start)
         assert p.start.pos == p.stop.pos
         assert self.protein_seq[p.slice] == 'L'
+        assert SequenceRange(10) == SequenceRange('10')
+        assert SequenceRange(10, 20) == SequenceRange('10:20')
 
         # make sure that a new object is created if extra annotations are avalible
         with_seq = SequenceRange(self.pep_start, self.pep_stop, full_sequence=self.protein_seq)
