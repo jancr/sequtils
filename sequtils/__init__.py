@@ -1,3 +1,38 @@
+"""
+#. :code:`SequencePoint`, useful for emulating Mutations, SNPs, PTM's etc., it's two
+   most important attributes are:
+
+   - :code:`SequencePoint.pos`, the human readable number, counting from 1
+   - :code:`SequencePoint.index`, the python readable number counting from 0
+	
+#. :code:`SequenedRange`, useful for emulating Proteins, domains, secondary structure etc.
+
+   - Its 3 most important attributes are:
+
+       - :code:`SequenceRange.start` is a :code:`SequencePoint` pointing to the first amino acid
+       - :code:`SequenceRange.stop` is a :code:`SequencePoint` pointing to the last amino acid
+       - :code:`SequenceRange.slice[start, stop]`: The python slice object, to index strings
+
+   - It also has the following two properties for easy conversion to tuple
+
+       - :code:`SequencePoint.pos.[start, stop]`: tuple with
+         (:code:`self.start.pos`, :code:`self.stop.pos`)
+       - :code:`SequencePoint.index[start, stop]`: tuple with
+         (:code:`self.start.index`, :code:`self.stop.index`)
+
+   - SequencePoint.slice[start, stop]: The python slice object, to index strings
+
+For Developers:
+
+:code:`SequencePoint` and :code:`SequenceRange` both subclass The base class
+:code:`BaseSequenceLocation`, which defines most the dunders and :code:`_arithmetic` and
+:code:`_comparison_cast` which takes care of most of the math and comparason for the subclasses
+"""
+
+
+# __future__ imports
+from __future__ import annotations
+
 # core imports
 import collections as _collections
 from collections.abc import Sequence as _Sequence
@@ -8,16 +43,10 @@ from functools import total_ordering as _total_ordering
 import math as _math
 from warnings import warn as _warn
 import pathlib as _pathlib
+from typing import Union as _Union
 
 __slots__ = ("SequencePoint", "SequenceRange")
 __all__ = ("SequencePoint", "SequenceRange")
-__doc__ = ""
-
-_readme_file = _pathlib.Path(__file__).parent.parent / 'README.rst'
-if _readme_file.exists():
-    with _readme_file.open() as _f:
-        __doc__ = _f.read()
-
 
 # named tuples used by SequenceRange
 #  _Pos = _collections.namedtuple("Position", ("start", "stop"))
@@ -58,15 +87,15 @@ class BaseSequenceLocation:
     # read only attributes
     @property
     def pos(self):
-        return self._pos
-
+        raise NotImplementedError("Please Implement this method")
+    
     @property
     def index(self):
-        return self._index
+        raise NotImplementedError("Please Implement this method")
 
     @property
     def slice(self):
-        return self._slice
+        raise NotImplementedError("Please Implement this method")
 
     def is_valid(self):
         try:
@@ -154,18 +183,32 @@ class BaseSequenceLocation:
         return hash(self.pos)
 
 
+# Type definitons for typehints, have to be defined after BaseSequenceLocation
+# SequencePoint has to be a string because otherwise: SequencePoint was refrence before defined
+_range_types = _Union[str, int, float, _Sequence, BaseSequenceLocation]
+_point_types = _Union[str, int, float, 'SequencePoint']
+
+
 class SequencePoint(BaseSequenceLocation):
     """
     helper class that converts between "normal" sequence numbers and pythons equivalent
-    # protein:      ELVISLIVES
-    #  - positions: 1234567890
-    # peptide:           LIVE
-    #  - positions       6  9
 
-    seq = "ELVISLIVES"
-    mutation = ProteinLocation(6)
-    mutation.pos  # returns 6
-    seq[mutation.index]  # "L"
+    :param position: Human Readable Sequence Position counting from 1
+
+    .. code-block:: python
+
+        # protein:      ELVISLIVES
+        #  - positions: 1234567890
+        # peptide:           LIVE
+        #  - positions       6  9
+
+        >>> seq = "ELVISLIVES"
+        >>> mutation = SequencePoint(6)
+        >>> mutation.pos 
+        6
+
+        >>> seq[mutation.index]
+        'L'
     """
 
     def __new__(cls, arg, *args, **kwargs):
@@ -175,7 +218,7 @@ class SequencePoint(BaseSequenceLocation):
             return arg
         return super().__new__(cls)
 
-    def __init__(self, position, *, validate=True):
+    def __init__(self, position: _point_types, *, validate=True):
         if isinstance(position, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(position, self.__class__):
                 return
@@ -194,6 +237,11 @@ class SequencePoint(BaseSequenceLocation):
     # alternative constructors
     @classmethod
     def from_index(cls, index, *, validate=True):
+        """
+        Alternative Constructure, using python indexes
+
+        :param index: python index of position
+        """
         return cls(index + 1, validate=validate)
 
     # implementation of abstract methods
@@ -215,47 +263,94 @@ class SequencePoint(BaseSequenceLocation):
     def __getnewargs__(self):
         return (self.pos,)
 
+    @property
+    def pos(self):
+        return self._pos
+
+    @property
+    def index(self):
+        return self._index
+
+    @property
+    def slice(self):
+        return self._slice
 
 class SequenceRange(BaseSequenceLocation):
     """
     helper class that converts between "normal" sequence numbers and pythons equivalent
-    # protein:      ELVISLIVES
-    #  - positions: 1234567890
-    # peptide:           -----
-    #  - positions       6  9
+    
+    :param start:
+        | Human readable beginning of sequence
+        | Can be of type:
+        | * any type that can be convereted to int, 
+        | * any :code:`collections.abc.Sequence` of length 2 
+        | * any :code:`SequenceRange` or :code:`SequencePoint`
+    :param stop:
+        | Human readable end of sequence, can be infered from :code:`seq` and :code:`length`
+        | Can be of type:
+        * any type that can be convereted to int, or :code:`SequencePoint`
+        * None it can be infered from :code:`start`, :code:`seq` or :code:`length`.
+    :param seq:
+        The biological sequence usally peptide or motif (eg :code:`CAT` or :code:`ELVISLIVES`)
+    :param full_sequence:
+        The biological sequence index by start and stop, :code:`seq` will be sliced out of
+        :code:`full_sequence`
+    :param length: length of the sequence
+    :param validate:
+        | raise exception if stop < start, is often set to false internally when performing math
+            because:
+        .. code-block:: python
 
-    seq = "ELVISLIVES"
-    peptide = SequenceRange(6, 9, seq)
-    peptide.pos  # returns (6, 9)
-    peptide.slice  # slice(5, 9, None)
-    seq[peptide.slice]  # "LIVE"
-    seq[peptide.index.start]  # "L"
-    seq[peptide.index.stop]  # "E"
-    peptide2 = SequenceRange(1, 5)
-    peptide2 < peptide 1  # True, because (1, 5) < (5, 9)
+            SequenceRange(5, 10) - (3, 2)
+        | temporarely creates the :code:`SequenceRange(3, 2)` object
+    :type start:
+    :type stop: str, int or SequencePoint
+    :type seq: str
+    :type full_sequence: str
+    :type validate: bool
+    :type length: int
+
+    sequence cordinate, counting from 1, with inclusive stop
+    viable calls to the constructor includes:
+    SequenceRange(1, 2)
+    SequenceRange(SequencePoint(1), SequencePoint(2))
+    SequenceRange((1, 2))
+    SequenceRange(SequenceRange(1, 2))
+
+    A "start" has to be always provided, but stop can be infered from the other arguments
+    thus the following creates the same object:
+        SequenceRange(1, 3)
+        SequenceRange((1, 3))
+        SequenceRange(1, seq="ABC")
+        SequenceRange(1, length=3)
+    if stop is None
+
+    Example
+
+    .. code-block:: python
+
+        # protein:     ELVISLIVES
+        # - positions: 1234567890
+        # peptide:          -----
+        # - positions       6  9
+
+        seq = "ELVISLIVES"
+        peptide = SequenceRange(6, 9, seq)
+        peptide.pos  # returns (6, 9)
+        peptide.slice  # slice(5, 9, None)
+        seq[peptide.slice]  # "LIVE"
+        seq[peptide.index.start]  # "L"
+        seq[peptide.index.stop]  # "E"
+        peptide2 = SequenceRange(1, 5)
+        peptide2 < peptide1  # True, because (1, 5) < (5, 9)
+
     """
 
     _str_separator = ':'
 
-    def __init__(self, start, stop=None, seq=None, full_sequence=None, *, validate=True,  # noqa
-                 length=None):
-        """
-        sequence cordinate, counting from 1, with inclusive stop
-        viable calls to the constructor includes:
-        SequenceRange(1, 2)
-        SequenceRange(SequencePoint(1), SequencePoint(2))
-        SequenceRange((1, 2))
-        SequenceRange(SequenceRange(1, 2))
-
-        A "start" has to be always provided, but stop can be infered from the other arguments
-        thus the following creates the same object:
-            SequenceRange(1, 3)
-            SequenceRange((1, 3))
-            SequenceRange(1, seq="ABC")
-            SequenceRange(1, length=3)
-        if stop is None
-        """
-
+    def __init__(self, start: _range_types, stop: _point_types=None, seq: _Union[None, str]=None,
+                 full_sequence: _Union[None, str]=None, *, validate: bool=True,
+                 length: _Union[int, bool]=None):
         if isinstance(start, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(start, self.__class__):
                 if seq is None and full_sequence is None:
@@ -301,7 +396,13 @@ class SequenceRange(BaseSequenceLocation):
 
     # alternate constructors
     @classmethod
-    def from_index(cls, start_index, stop_index=None, **kwargs):
+    def from_index(cls, start_index: _range_types, stop_index: _point_types=None, **kwargs):
+        """
+        Alternative Constructure, using python indexes
+
+        :param start_index: python index of start position
+        :param stop_index: python index of stop position
+        """
         if isinstance(start_index, cls.mro()[1]):  # instance of parent
             return cls(start_index)
         if isinstance(start_index, _Sequence) and len(start_index) == 2:
@@ -311,18 +412,42 @@ class SequenceRange(BaseSequenceLocation):
             return cls(start_index + 1, **kwargs)
         return cls(start_index + 1, stop_index + 1, **kwargs)
 
-    @classmethod
-    def _from_string(cls, string):
-        if cls._str_separator in string:
-            start, stop = map(SequencePoint, string.split(cls._str_separator))
-        else:
-            start = stop = SequencePoint(string, validate=False)
-        return start, stop
+    #  @classmethod
+    #  def _from_string(cls, string):
+    #      if cls._str_separator in string:
+    #          start, stop = map(SequencePoint, string.split(cls._str_separator))
+    #      else:
+    #          start = stop = SequencePoint(string, validate=False)
+    #      return start, stop
 
     @classmethod
-    def from_center_and_window(cls, center, window_size, max_length=_math.inf, **kwargs):
-        start = max(1, center - window_size)
-        stop = min(max_length, center + window_size)
+    def from_center_and_window(cls, center: _Union[int, SequencePoint], window: int,
+                               max_length: _point_types=_math.inf, **kwargs):
+        """
+        Alternative Constructur, :math:`center\pm{}window`
+
+        :param center: central position
+        :param window: extension to the left and right of :code:`center`
+        :param max_length: `stop` cannot be extended pass this number
+
+        example:
+
+        .. code-block:: python
+
+            >>> SequenceRange.from_center_and_window(10, 5)
+            SequenceRange(5, 15, seq=None)
+
+            # cannot extend past pos=1
+            >>> SequenceRange.from_center_and_window(10, 15)
+            SequenceRange(1, 25, seq=None)
+
+            # cannot extend past max_length
+            >>> SequenceRange.from_center_and_window(100, 10, max_length=105)
+            SequenceRange(90, 105, seq=None)
+        """
+
+        start = max(1, center - window)
+        stop = min(max_length, center + window)
         return cls(start, stop, **kwargs)
 
     @classmethod
@@ -330,20 +455,47 @@ class SequenceRange(BaseSequenceLocation):
         return SequencePoint(start + length - 1)
 
     @classmethod
-    def from_slice(cls, start_slice, stop_slice=None):
+    def from_slice(cls, start_slice: _Union[int, _Sequence, slice],
+                   stop_slice: _Union[int, None]=None):
+        """
+        Alternative Constructor, from python slice, or slice coordinates
+
+        :param start_sclice
+
+        """
+
         if isinstance(start_slice, slice):
             return cls(start_slice.start + 1, start_slice.stop)
+        elif isinstance(start_slice, _Sequence) and len(stop_slice) == 2:
+            start_slice, stop_slice = start_slice
         return cls(start_slice + 1, stop_slice)
 
     @classmethod
-    def from_sequence(cls, full_sequence, peptide_sequence):
-        start_index = full_sequence.find(peptide_sequence)
+    def from_sequence(cls, full_sequence: str, sequence: str):
+        """
+        Alternative Constructure, cut out the sequence from a full_sequence (protein, gene, ect)
+
+        :param full_sequence: a biological sequence
+        :param sequence: a biological sequence contained within :code:`full_sequence`
+
+        Example:
+
+        .. code-block:: python
+
+        >>> SequenceRange.from_sequence('EVILELVISLIVES', 'ELVIS')
+        SequenceRange(5, 9, seq="ELVIS")
+
+        **Warning:** if code:`sequence` is found multiple times in :code:`full_sequence`, then the
+        first occurance will be returned
+        """
+
+        start_index = full_sequence.find(sequence)
         if start_index == -1:
-            raise IndexError("{} not in {}".format(peptide_sequence, full_sequence))
+            raise IndexError("{} not in {}".format(sequence, full_sequence))
 
         start = start_index + 1
-        stop = start_index + len(peptide_sequence)
-        return cls(start, stop, seq=peptide_sequence, full_sequence=full_sequence)
+        stop = start_index + len(sequence)
+        return cls(start, stop, seq=sequence, full_sequence=full_sequence)
 
     def _get_seq(self, seq, full_sequence):
         if seq:
@@ -391,10 +543,18 @@ class SequenceRange(BaseSequenceLocation):
         return "{}{}{}".format(self.start.pos, self._str_separator, self.stop.pos)
 
     def __repr__(self):
-        #  return "{}({}, {})".format(type(self).__name__, self.start.pos, self.stop.pos)
+        base = "{}({{}})".format(type(self).__name__)
         if self.seq is None:
-            return '{}({}, {}, seq=None)'.format(type(self).__name__, self.start, self.stop)
-        return '{}({}, {}, seq="{}")'.format(type(self).__name__, self.start, self.stop, self.seq)
+            return base.format("{}, {}, seq=None".format(self.start, self.stop))
+
+        seq = self.seq
+        if 40 < len(seq):
+            seq = self.seq[:5] + '..' + self.seq[-5:]
+        return base.format('{}, {}, seq="{}"'.format(self.start, self.stop, seq))
+
+        #  if self.seq is None:
+        #      return '{}({}, {}, seq=None)'.format(type(self).__name__, self.start, self.stop)
+        #  return '{}({}, {}, seq="{}")'.format(type(self).__name__, self.start, self.stop, self.seq)
 
     def __iter__(self):
         for pos in range(self.start.pos, self.stop.pos + 1):
@@ -407,13 +567,17 @@ class SequenceRange(BaseSequenceLocation):
     def contains(self, item, part=all):
         """
         Check wheter item is inside 'self'.
-        by default (part=all) all amino acids has to be inside self:
-        by changing to (part=any), then only one of the amino acids have to be inside:
-        self = -----ELVISLIVES
-        item = ----------L----        <--- part=all -> True,  part=any -> True
-        item = ----------LIVE-        <--- part=all -> True,  part=any -> True
-        item = ----------LIVESANDDIES <--- part=all -> False, part=any -> True
-        item = ELVENELVISLIVESANDDIES <--- part=all -> False, part=any -> True
+
+        | by default (part=all) all amino acids has to be inside self:
+        | by changing to (part=any), then only one of the amino acids have to be inside:
+
+        .. code-block::
+
+            self = -----ELVISLIVES
+            item = ----------L----        <--- part=all -> True,  part=any -> True
+            item = ----------LIVE-        <--- part=all -> True,  part=any -> True
+            item = ----------LIVESANDDIES <--- part=all -> False, part=any -> True
+            item = ELVENELVISLIVESANDDIES <--- part=all -> False, part=any -> True
         """
 
         if isinstance(item, self.__class__.mro()[0]):
@@ -433,34 +597,42 @@ class SequenceRange(BaseSequenceLocation):
 
     # properties, to make it read-only
     @property
-    def seq(self):
+    def seq(self) -> _Union[str, None]:
         return self._seq
 
     @property
-    def start(self):
+    def start(self) -> SequencePoint:
         return self._start
 
     @property
-    def stop(self):
+    def stop(self) -> SequencePoint:
         return self._stop
 
     @property
-    def index(self):
+    def slice(self) -> _Index:
+        return self._slice
+
+    @property
+    def index(self) -> _Index:
         return _Index(self.start.index, self.stop.index)
 
     @property
-    def pos(self):
+    def pos(self) -> _Pos:
         return _Pos(self.start.pos, self.stop.pos)
 
     @property
-    def length(self):
+    def length(self) -> int:
         return self.stop.pos - self.start.pos + 1
 
     def __eq__(self, other):
+        return self._eq_helper(other)
+
+    def _eq_helper(self, other, *, compare_seq=True):
         if self._comparison_cast(other):
             try:
                 other = self.__class__(other, validate=False)
-                return self.pos == other.pos and self.seq == other.seq
+                #  return self.pos == other.pos and self.seq == other.seq
+                return self.pos == other.pos and (not compare_seq or self.seq == other.seq)
             except (ValueError, TypeError):
                 pass
         return NotImplemented
@@ -471,3 +643,37 @@ class SequenceRange(BaseSequenceLocation):
 
     def __hash__(self):
         return self._hash(self.pos, self.seq)
+
+    def equals(self, other, compare_seq=True, cast=True):
+        """
+        With default arguments it works much like :code:`==`, but the behavior can be altered
+
+        .. code-block::
+
+            >>> sr_seq = SequenceRange(10, seq="A"*11)
+            >>> sr_non = SequenceRange(10, 20)
+
+            >>> # default == behaviour
+            >>> sr_seq == (10, 20)  # returns False - because seq is different
+            False
+            >>> sr_non == (10, 20)  # returns True - because both seq are None
+            True
+
+            >>> sr_non.equals((10, 20), compare_seq=True, cast=False)  # no cast
+            False
+            >>> sr_non.equals(sr_seq, compare_seq=True, cast=False)  # different seq
+            False
+            >>> sr_non.equals(sr_seq, compare_seq=False, cast=False)  # same coordinates
+            True
+        """
+
+        if cast == True:
+            return self._eq_helper(other, compare_seq=compare_seq)
+        elif isinstance(other, self.__class__.mro()[1]):  # isinstance of parent
+            return self._eq_helper(other, compare_seq=compare_seq)
+        return False
+
+
+
+
+
