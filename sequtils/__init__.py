@@ -4,7 +4,7 @@
 
    - :code:`SequencePoint.pos`, the human readable number, counting from 1
    - :code:`SequencePoint.index`, the python readable number counting from 0
-	
+
 #. :code:`SequenedRange`, useful for emulating Proteins, domains, secondary structure etc.
 
    - Its 3 most important attributes are:
@@ -29,14 +29,9 @@ For Developers:
 :code:`_comparison_cast` which takes care of most of the math and comparason for the subclasses
 """
 
-
-# __future__ imports
-from __future__ import annotations
-
 # core imports
 import collections as _collections
 from collections.abc import Sequence as _Sequence
-#  from abc import ABCMeta as _ABCMeta
 from abc import abstractmethod as _abstractmethod
 import operator as _operator
 from functools import total_ordering as _total_ordering
@@ -54,6 +49,35 @@ __all__ = ("SequencePoint", "SequenceRange")
 
 
 class _Positions(_collections.namedtuple("Pos", ("_1", "_2"), rename=True)):
+    """
+    Wrapped namedtuple, to issue deprecation warnings when the interface is used the old way
+
+    The old SequenceRange object had two named tuples one named index and one named pos, so it was
+    accessed like this
+
+    .. code:: python
+
+        >>> sr = SequenceRange(5, 10)
+        >>> sr.index  # <-- this is fine
+        (4, 9)
+        >>> sr.index.start  # <-- depricated
+        4
+
+    This behaviour is still valid, but throws a :code:`DeprecationWarning` via this class, the
+    recomended syntax is to first do :code:`start` or :code:`stop` which returns a
+    :code:`SequencePoint`
+
+    .. code:: python
+
+        >>> sr = SequenceRange(5, 10)
+        >>> sr.start
+        SequencePoint(5)
+        >>> sr.index
+        (4, 9)
+        >>> sr.start.index  # <-- new syntax
+        4
+    """
+
     _warning = ("SequenceRange.{name}.{position} is deprecated, "
                 "use SequenceRange.{position}.{name} instead")
 
@@ -70,6 +94,9 @@ class _Positions(_collections.namedtuple("Pos", ("_1", "_2"), rename=True)):
         msg = cls._warning.format(name=cls.name, position=position)
         _warn(msg, DeprecationWarning)
         return field
+
+    def __repr__(self):
+        return repr(tuple(self))
 
 
 class _Pos(_Positions):
@@ -88,7 +115,7 @@ class BaseSequenceLocation:
     @property
     def pos(self):
         raise NotImplementedError("Please Implement this method")
-    
+
     @property
     def index(self):
         raise NotImplementedError("Please Implement this method")
@@ -132,6 +159,7 @@ class BaseSequenceLocation:
 
         if not isinstance(other, self.__class__):
             try:
+                #  other = getattr(other, 'index', other)
                 other = self.__class__.from_index(other, validate=False)
             except TypeError:
                 return NotImplemented
@@ -204,7 +232,7 @@ class SequencePoint(BaseSequenceLocation):
 
         >>> seq = "ELVISLIVES"
         >>> mutation = SequencePoint(6)
-        >>> mutation.pos 
+        >>> mutation.pos
         6
 
         >>> seq[mutation.index]
@@ -275,10 +303,25 @@ class SequencePoint(BaseSequenceLocation):
     def slice(self):
         return self._slice
 
+
 class SequenceRange(BaseSequenceLocation):
     """
     helper class that converts between "normal" sequence numbers and pythons equivalent
-    
+
+    sequence cordinate, counting from 1, with inclusive stop
+    viable calls to the constructor includes:
+        | * :code:`SequenceRange(1, 2)`
+        | * :code:`SequenceRange(SequencePoint(1), SequencePoint(2))`
+        | * :code:`SequenceRange((1, 2))`
+        | * :code:`SequenceRange(SequenceRange(1, 2))`
+
+    A "start" has to be always provided, but stop can be infered from the other arguments
+    thus the following creates the same object:
+        | * :code:`SequenceRange(1, 3)`
+        | * :code:`SequenceRange((1, 3))`
+        | * :code:`SequenceRange(1, seq="ABC")`
+        | * :code:`SequenceRange(1, length=3)`
+
     :param start:
         | Human readable beginning of sequence
         | Can be of type:
@@ -298,32 +341,17 @@ class SequenceRange(BaseSequenceLocation):
     :param length: length of the sequence
     :param validate:
         | raise exception if stop < start, is often set to false internally when performing math
-            because:
+            because the two lines are equivalent:
         .. code-block:: python
 
             SequenceRange(5, 10) - (3, 2)
-        | temporarely creates the :code:`SequenceRange(3, 2)` object
+            SequenceRange(5, 10) - SequenceRange.from_index(3, 2, validate=False)
     :type start:
     :type stop: str, int or SequencePoint
     :type seq: str
     :type full_sequence: str
     :type validate: bool
     :type length: int
-
-    sequence cordinate, counting from 1, with inclusive stop
-    viable calls to the constructor includes:
-    SequenceRange(1, 2)
-    SequenceRange(SequencePoint(1), SequencePoint(2))
-    SequenceRange((1, 2))
-    SequenceRange(SequenceRange(1, 2))
-
-    A "start" has to be always provided, but stop can be infered from the other arguments
-    thus the following creates the same object:
-        SequenceRange(1, 3)
-        SequenceRange((1, 3))
-        SequenceRange(1, seq="ABC")
-        SequenceRange(1, length=3)
-    if stop is None
 
     Example
 
@@ -334,15 +362,23 @@ class SequenceRange(BaseSequenceLocation):
         # peptide:          -----
         # - positions       6  9
 
-        seq = "ELVISLIVES"
-        peptide = SequenceRange(6, 9, seq)
-        peptide.pos  # returns (6, 9)
-        peptide.slice  # slice(5, 9, None)
-        seq[peptide.slice]  # "LIVE"
-        seq[peptide.index.start]  # "L"
-        seq[peptide.index.stop]  # "E"
-        peptide2 = SequenceRange(1, 5)
-        peptide2 < peptide1  # True, because (1, 5) < (5, 9)
+        >>> seq = "ELVISLIVES"
+        >>> peptide = SequenceRange(6, 9, full_sequence=seq)
+        >>> peptide.pos  
+        (6, 9)
+        >>> peptide.slice
+        slice(5, 9, None)
+        >>> seq[peptide.slice]
+        'LIVE'
+
+        >>> seq[peptide.start.index]
+        'L'
+        >>> seq[peptide.stop.index]  
+        'E'
+
+        >>> peptide2 = SequenceRange(1, 5)
+        >>> peptide2 < peptide  # True, because (1, 5) < (5, 9)
+        True
 
     """
 
@@ -350,7 +386,7 @@ class SequenceRange(BaseSequenceLocation):
 
     def __init__(self, start: _range_types, stop: _point_types=None, seq: _Union[None, str]=None,
                  full_sequence: _Union[None, str]=None, *, validate: bool=True,
-                 length: _Union[int, bool]=None):
+                 length: _Union[int, bool]=None, _special=None):
         if isinstance(start, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(start, self.__class__):
                 if seq is None and full_sequence is None:
@@ -358,23 +394,21 @@ class SequenceRange(BaseSequenceLocation):
                 start, stop = start.pos
             elif isinstance(start, SequencePoint):
                 start = start
-        if isinstance(start, _Sequence) and len(start) == 2 and \
-                not isinstance(start, (bytes, str)):
-            if stop is not None:
-                raise ValueError(
-                    "if start is a Sequence (e.g (2, 5), then stop has to be None\n"
-                    " - Thise is ok : SequenceRange(2, 5)\n"
-                    " -             : SequenceRange((2, 5))\n"
-                    " - but not this: SequenceRange((2, 5), 5)\n")
-            start, stop = start[:2]
-        elif isinstance(start, str) and self._str_separator in start and stop is None:
-            start, stop = map(int, start.split(':'))
+        elif self._valid_range(start):
+            start, stop = self._parse_range(start, stop)
 
         stop = self._resolve_stop(start, stop, length, seq)
         self._seq = seq
 
-        self._start = SequencePoint(start, validate=validate)
-        self._stop = SequencePoint(stop, validate=validate)
+        if _special == 'index':
+            start_offset, stop_offset = (1, 1)
+        elif _special == 'slice':
+            start_offset, stop_offset = (1, 0)
+        else:
+            start_offset, stop_offset = (0, 0)
+
+        self._start = SequencePoint(start + start_offset, validate=validate)
+        self._stop = SequencePoint(stop + stop_offset, validate=validate)
 
         if validate:
             self.validate()
@@ -383,8 +417,8 @@ class SequenceRange(BaseSequenceLocation):
         self._seq = self._get_seq(seq, full_sequence)
 
     def _resolve_stop(self, start, stop, length, seq):
-        if isinstance(stop, SequencePoint):
-            stop = stop
+        if isinstance(stop, (str, bytes)):
+            return int(stop)
         elif stop is None:
             if length is not None:
                 stop = self._stop_from_start_and_length(start, length)
@@ -393,6 +427,32 @@ class SequenceRange(BaseSequenceLocation):
             else:
                 stop = start
         return stop
+
+    @classmethod
+    def _valid_range(cls, positions):
+        if isinstance(positions, str) and cls._str_separator in positions:
+            return True
+        elif isinstance(positions, _Sequence) and len(positions) == 2:
+            return True
+        return False
+
+    @classmethod
+    def _parse_range(cls, start, stop):
+        if isinstance(start, bytes):
+            start = start.decode('utf8')
+        if isinstance(start, str):
+            if cls._str_separator in start:
+                return map(int, start.split(cls._str_separator))
+            return int(start), stop
+        elif isinstance(start, _Sequence) and len(start) == 2:
+            if stop is not None:
+                raise ValueError(
+                    "if start is a Sequence (e.g (2, 5), then stop has to be None\n"
+                    " - Thise is ok : SequenceRange(2, 5)\n"
+                    " -             : SequenceRange((2, 5))\n"
+                    " - but not this: SequenceRange((2, 5), 5)\n")
+            return start[:2]
+        raise ValueError("{} cannot be understood by the constructor".format(start))
 
     # alternate constructors
     @classmethod
@@ -403,22 +463,10 @@ class SequenceRange(BaseSequenceLocation):
         :param start_index: python index of start position
         :param stop_index: python index of stop position
         """
+
         if isinstance(start_index, cls.mro()[1]):  # instance of parent
             return cls(start_index)
-        if isinstance(start_index, _Sequence) and len(start_index) == 2:
-            start_index, stop_index = start_index
-
-        if stop_index is None:
-            return cls(start_index + 1, **kwargs)
-        return cls(start_index + 1, stop_index + 1, **kwargs)
-
-    #  @classmethod
-    #  def _from_string(cls, string):
-    #      if cls._str_separator in string:
-    #          start, stop = map(SequencePoint, string.split(cls._str_separator))
-    #      else:
-    #          start = stop = SequencePoint(string, validate=False)
-    #      return start, stop
+        return cls(start_index, stop_index, _special='index', **kwargs)
 
     @classmethod
     def from_center_and_window(cls, center: _Union[int, SequencePoint], window: int,
@@ -456,7 +504,7 @@ class SequenceRange(BaseSequenceLocation):
 
     @classmethod
     def from_slice(cls, start_slice: _Union[int, _Sequence, slice],
-                   stop_slice: _Union[int, None]=None):
+                   stop_slice: _Union[int, None]=None, **kwargs):
         """
         Alternative Constructor, from python slice, or slice coordinates
 
@@ -465,10 +513,15 @@ class SequenceRange(BaseSequenceLocation):
         """
 
         if isinstance(start_slice, slice):
-            return cls(start_slice.start + 1, start_slice.stop)
-        elif isinstance(start_slice, _Sequence) and len(stop_slice) == 2:
-            start_slice, stop_slice = start_slice
-        return cls(start_slice + 1, stop_slice)
+            if start_slice.step not in (1, None):
+                raise ValueError("Slice has to have a step of 1 to be a valid SequenceRange")
+            return cls(start_slice.start + 1, start_slice.stop, **kwargs)
+        return cls(start_slice, stop_slice, _special='slice', **kwargs)
+        #  _start_offset = 1 + kwargs.pop('_start_offset', 0)
+        #  return cls(start_slice, stop_slice, _start_offset=_start_offset, **kwargs)
+        #  elif cls._valid_range(start_slice):
+        #      start_slice, stop_slice = cls._parse_range(start_slice, stop_slice)
+        #  return cls(start_slice + 1, stop_slice)
 
     @classmethod
     def from_sequence(cls, full_sequence: str, sequence: str):
@@ -672,8 +725,3 @@ class SequenceRange(BaseSequenceLocation):
         elif isinstance(other, self.__class__.mro()[1]):  # isinstance of parent
             return self._eq_helper(other, compare_seq=compare_seq)
         return False
-
-
-
-
-

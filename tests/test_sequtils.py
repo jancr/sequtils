@@ -577,17 +577,6 @@ class TestSequenceRange(BaseTestSequence):
         for compare_seq, cast in ((True, True), (True, False), (False, True), (False, False)):
             assert sr_seq.equals(sr_seq2, compare_seq, cast)
 
-
-        #  assert not sr_seq.equals((10, 20), compare_seq=True, cast=True)  # returns False
-        #  assert sr_seq.equals((10, 20), compare_seq=False, cast=True)  # returns True
-        #  
-        #  assert not sr.equals((10, 20), compare_seq=True, cast=True)  # returns True
-        #  assert not sr2.equals((10, 20), compare_seq=True, cast=True)  # returns True
-        #  
-        #  assert sr2.equals((10, 20), compare_seq=False, cast=True)  # returns False
-        #  assert not sr2.equals((10, 20), compare_seq=True, cast=False)  # returns False
-        #  assert not sr2.equals((10, 20), compare_seq=False, cast=False)  # returns False
-        #  
     def test___eq__(self):
         assert SequenceRange(10, seq="A"*11) != (10, 20)
         assert SequenceRange(10, 20) == (10, 20)
