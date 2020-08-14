@@ -37,11 +37,12 @@ import operator as _operator
 from functools import total_ordering as _total_ordering
 import math as _math
 from warnings import warn as _warn
-import pathlib as _pathlib
+#  import pathlib as _pathlib
 from typing import Union as _Union
 
 __slots__ = ("SequencePoint", "SequenceRange")
 __all__ = ("SequencePoint", "SequenceRange")
+
 
 # named tuples used by SequenceRange
 #  _Pos = _collections.namedtuple("Position", ("start", "stop"))
@@ -113,14 +114,17 @@ class BaseSequenceLocation:
 
     # read only attributes
     @property
+    @_abstractmethod
     def pos(self):
         raise NotImplementedError("Please Implement this method")
 
     @property
+    @_abstractmethod
     def index(self):
         raise NotImplementedError("Please Implement this method")
 
     @property
+    @_abstractmethod
     def slice(self):
         raise NotImplementedError("Please Implement this method")
 
@@ -517,11 +521,6 @@ class SequenceRange(BaseSequenceLocation):
                 raise ValueError("Slice has to have a step of 1 to be a valid SequenceRange")
             return cls(start_slice.start + 1, start_slice.stop, **kwargs)
         return cls(start_slice, stop_slice, _special='slice', **kwargs)
-        #  _start_offset = 1 + kwargs.pop('_start_offset', 0)
-        #  return cls(start_slice, stop_slice, _start_offset=_start_offset, **kwargs)
-        #  elif cls._valid_range(start_slice):
-        #      start_slice, stop_slice = cls._parse_range(start_slice, stop_slice)
-        #  return cls(start_slice + 1, stop_slice)
 
     @classmethod
     def from_sequence(cls, full_sequence: str, sequence: str):
@@ -562,7 +561,6 @@ class SequenceRange(BaseSequenceLocation):
                 msg = "The sequence {} is to short to contain {}"
                 raise ValueError(msg.format(full_sequence, self))
         return seq
-        #  return None
 
     # implementation of abstract methods
     def validate(self):
@@ -604,10 +602,6 @@ class SequenceRange(BaseSequenceLocation):
         if 40 < len(seq):
             seq = self.seq[:5] + '..' + self.seq[-5:]
         return base.format('{}, {}, seq="{}"'.format(self.start, self.stop, seq))
-
-        #  if self.seq is None:
-        #      return '{}({}, {}, seq=None)'.format(type(self).__name__, self.start, self.stop)
-        #  return '{}({}, {}, seq="{}")'.format(type(self).__name__, self.start, self.stop, self.seq)
 
     def __iter__(self):
         for pos in range(self.start.pos, self.stop.pos + 1):
@@ -684,7 +678,6 @@ class SequenceRange(BaseSequenceLocation):
         if self._comparison_cast(other):
             try:
                 other = self.__class__(other, validate=False)
-                #  return self.pos == other.pos and self.seq == other.seq
                 return self.pos == other.pos and (not compare_seq or self.seq == other.seq)
             except (ValueError, TypeError):
                 pass

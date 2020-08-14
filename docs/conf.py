@@ -18,12 +18,14 @@ import sphinx_rtd_theme
 
 project_dir = pathlib.Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(project_dir))
+#  import sequtils
 
 # -- Project information -----------------------------------------------------
 
 project = 'Sequence Utilities'
 copyright = '2020'
 author = 'Jan Christian Refsgaard'
+#  version = sequtils.__version__
 with open(os.path.join(os.path.abspath('..'), 'version.txt')) as f:
     version = f.read().strip()
 
