@@ -11,16 +11,14 @@
 
        - :code:`SequenceRange.start` is a :code:`SequencePoint` pointing to the first amino acid
        - :code:`SequenceRange.stop` is a :code:`SequencePoint` pointing to the last amino acid
-       - :code:`SequenceRange.slice[start, stop]`: The python slice object, to index strings
+       - :code:`SequenceRange.slice.[start, stop]`: The python slice object, to index strings
 
    - It also has the following two properties for easy conversion to tuple
 
-       - :code:`SequencePoint.pos.[start, stop]`: tuple with
+       - :code:`SequencePoint.pos.[start, stop]`: tuple containing
          (:code:`self.start.pos`, :code:`self.stop.pos`)
-       - :code:`SequencePoint.index[start, stop]`: tuple with
+       - :code:`SequencePoint.index[start, stop]`: tuple containing
          (:code:`self.start.index`, :code:`self.stop.index`)
-
-   - SequencePoint.slice[start, stop]: The python slice object, to index strings
 
 For Developers:
 
@@ -496,7 +494,7 @@ class SequenceRange(BaseSequenceLocation):
         :param window: extension to the left and right of :code:`center`
         :param max_length: `stop` cannot be extended pass this number
 
-        example:
+        Example:
 
         .. code-block:: python
 
@@ -548,8 +546,8 @@ class SequenceRange(BaseSequenceLocation):
 
         .. code-block:: python
 
-        >>> SequenceRange.from_sequence('EVILELVISLIVES', 'ELVIS')
-        SequenceRange(5, 9, seq="ELVIS")
+            >>> SequenceRange.from_sequence('EVILELVISLIVES', 'ELVIS')
+            SequenceRange(5, 9, seq="ELVIS")
 
         **Warning:** if code:`sequence` is found multiple times in :code:`full_sequence`, then the
         first occurance will be returned

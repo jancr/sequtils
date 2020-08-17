@@ -1,11 +1,13 @@
-========
-sequtils
-========
+=================
+Sequtils Tutorial
+=================
 
 Collection of Classes and functions for working with biological sequences
 
+Overview
+========
+
 There are two Public classes
-============================
 
 #. :code:`SequencePoint`, useful for emulating Mutations, SNPs, PTM's etc., it's two
    most important attributes are:
@@ -23,12 +25,13 @@ There are two Public classes
 
    - It also has the following two properties for easy conversion to tuple
 
-       - :code:`SequencePoint.pos.[start, stop]`: tuple with
+       - :code:`SequencePoint.pos.[start, stop]`: tuple containing
          (:code:`self.start.pos`, :code:`self.stop.pos`)
-       - :code:`SequencePoint.index.[start, stop]`: tuple with
+       - :code:`SequencePoint.index.[start, stop]`: tuple containing
          (:code:`self.start.index`, :code:`self.stop.index`)
 
-   - SequencePoint.slice[start, stop]: The python slice object, to index strings
+Tutorial
+========
 
 Example code, lets make glucagon
 

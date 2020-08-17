@@ -1,5 +1,5 @@
-API for Sequence Utilities
-==========================
+Sequtils API
+============
 
 .. automodule:: sequtils
    :members:
