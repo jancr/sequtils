@@ -25,7 +25,7 @@ There are two Public classes
 
        - :code:`SequencePoint.pos.[start, stop]`: tuple with
          (:code:`self.start.pos`, :code:`self.stop.pos`)
-       - :code:`SequencePoint.index[start, stop]`: tuple with
+       - :code:`SequencePoint.index.[start, stop]`: tuple with
          (:code:`self.start.index`, :code:`self.stop.index`)
 
    - SequencePoint.slice[start, stop]: The python slice object, to index strings

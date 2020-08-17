@@ -258,6 +258,14 @@ class TestSequenceRange(BaseTestSequence):
         with pytest.raises(ValueError):
             SequenceRange(15, 10)
 
+        # if start is a abc.Sequence, then stop has to be None
+        with pytest.raises(ValueError):
+            SequenceRange((5, 10), 10)
+        with pytest.raises(ValueError):
+            SequenceRange(SequenceRange(5, 10), 10)
+        with pytest.raises(ValueError):
+            SequenceRange((SequencePoint(5), SequencePoint(10)), SequencePoint(10))
+
         # ensure it can cast itself, just like int(int(1)) == int(1)
         assert SequenceRange(SequenceRange(1)) == SequenceRange(1)
 
@@ -409,7 +417,7 @@ class TestSequenceRange(BaseTestSequence):
 
     def test__sub__extra(self):
         # SequenceRange(1) has index = 0, pos = 1
-        SequenceRange = self.test_class
+        #  SequenceRange = self.test_class
         assert SequenceRange(1, 1) - SequenceRange(1) == SequenceRange(1, 1)
         assert SequenceRange(1, 5) - SequenceRange(1) == SequenceRange(1, 5)
         assert SequenceRange(2, 3) - 1 == SequenceRange(1, 2)
@@ -553,10 +561,17 @@ class TestSequenceRange(BaseTestSequence):
         """
 
         # '53' is a abc.Sequecne with length 2, thus is used to be interpeted much like ('5', '3')
-        assert SequenceRange('53', '63', seq='A' * 11) == SequenceRange(53, seq='A' * 11)
-        assert SequenceRange('53', '63', seq='A' * 11) == SequenceRange(53, 63, seq='A' * 11)
-        assert SequenceRange(b'53', b'63', seq='A' * 11) == SequenceRange(53, seq='A' * 11)
-        assert SequenceRange(b'53', b'63', seq='A' * 11) == SequenceRange(53, 63, seq='A' * 11)
+        for start in (53, '53', b'53'):
+            for stop in (63, '63', b'63'):
+                assert SequenceRange(start, stop, seq='A' * 11) == SequenceRange(53, seq='A' * 11)
+
+        for start in (153, '153', b'153'):
+            for stop in (163, '163', b'163'):
+                assert SequenceRange(start, stop, seq='A' * 11) == SequenceRange(153, seq='A' * 11)
+        #  assert SequenceRange('53', '63', seq='A' * 11) == SequenceRange(53, seq='A' * 11)
+        #  assert SequenceRange('53', '63', seq='A' * 11) == SequenceRange(53, 63, seq='A' * 11)
+        #  assert SequenceRange(b'53', b'63', seq='A' * 11) == SequenceRange(53, seq='A' * 11)
+        #  assert SequenceRange(b'53', b'63', seq='A' * 11) == SequenceRange(53, 63, seq='A' * 11)
 
     def test_equals(self):
         sr_non = SequenceRange(10, 20)
@@ -584,6 +599,7 @@ class TestSequenceRange(BaseTestSequence):
 
 class TestInteroperability:
     def test_conversion(self):
+        assert SequenceRange(1, 1) == SequenceRange(SequencePoint(1))
         assert SequenceRange(1, 2) == SequenceRange(SequencePoint(1), SequencePoint(2))
         assert SequenceRange(1, 2) == SequenceRange(SequencePoint(1), 2)
         assert SequenceRange(1, 2) == SequenceRange(1, SequencePoint(2))

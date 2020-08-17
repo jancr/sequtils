@@ -308,6 +308,7 @@ class SequencePoint(BaseSequenceLocation):
         return self._slice
 
 
+
 class SequenceRange(BaseSequenceLocation):
     """
     helper class that converts between "normal" sequence numbers and pythons equivalent
@@ -387,21 +388,32 @@ class SequenceRange(BaseSequenceLocation):
     """
 
     _str_separator = ':'
+    #  _bytes_seperator = b':'  # this should be a class decorator created from _str_seperator
 
     def __init__(self, start: _range_types, stop: _point_types=None, seq: _Union[None, str]=None,
                  full_sequence: _Union[None, str]=None, *, validate: bool=True,
                  length: _Union[int, bool]=None, _special=None):
         if isinstance(start, self.__class__.mro()[1]):  # isinstance of parent
             if isinstance(start, self.__class__):
+                if stop is not None:
+                    raise ValueError("either:\n"
+                                     "    1. start and stop are scalars or\n"
+                                     "    2. start is asequence of length 2 and stop is None")
                 if seq is None and full_sequence is None:
                     seq = start.seq
                 start, stop = start.pos
-            elif isinstance(start, SequencePoint):
-                start = start
+            #  elif isinstance(start, SequencePoint):
+            #      start = start.pos
         elif self._valid_range(start):
             start, stop = self._parse_range(start, stop)
 
-        stop = self._resolve_stop(start, stop, length, seq)
+        if isinstance(start, (str, bytes)):
+            start = int(start)
+        if isinstance(stop, (str, bytes)):
+            stop = int(stop)
+        elif stop is None:
+            stop = self._resolve_stop(start, stop, length, seq)
+
         self._seq = seq
 
         if _special == 'index':
@@ -434,11 +446,13 @@ class SequenceRange(BaseSequenceLocation):
 
     @classmethod
     def _valid_range(cls, positions):
-        if isinstance(positions, str) and cls._str_separator in positions:
-            return True
-        elif isinstance(positions, _Sequence) and len(positions) == 2:
-            return True
-        return False
+        if not isinstance(positions, _Sequence):
+            return False
+        if isinstance(positions, str):
+            return cls._str_separator in positions
+        elif isinstance(positions, bytes):
+            return cls._str_separator.encode() in positions
+        return len(positions) == 2
 
     @classmethod
     def _parse_range(cls, start, stop):
