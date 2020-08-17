@@ -62,7 +62,7 @@ class BaseTestSequence:
 
     # math should be index based, ie the Indexes should be added together, and any integer
     # should be assumed to be an "integer offset"
-    def test__add__(self):
+    def test___add__(self):
         # cls(1) has index = 0, pos = 1
         cls = self.test_class
         assert cls(1) + cls(1) == cls(1)  # because index 0 + 0 = 0
@@ -74,7 +74,7 @@ class BaseTestSequence:
         assert 10 + cls(2) == cls(12)  # because 10 + 1 = 11
         assert cls(10) + cls(1) == cls(10)  # because 9 + 0 = 9
 
-    def test__sub__(self):
+    def test___sub__(self):
         # cls(1) has index = 0, pos = 1
         cls = self.test_class
         assert cls(1) - cls(1) == cls(1)  # because index 0 - 0 = 0
@@ -97,6 +97,10 @@ class BaseTestSequence:
         sr = SequenceRange(1, 5)
         for protocol in range(5):
             pickle.loads(pickle.dumps(sr, protocol=protocol))
+
+    def test_is_valid(self):
+        assert self.test_class(10, validate=True).is_valid()
+        assert not self.test_class(-10, validate=False).is_valid()
 
 
 ########################################
@@ -136,6 +140,7 @@ class TestSequencePoint(BaseTestSequence):
             self._assert(SequencePoint(start), SequencePoint(stop), seq, glucagon_seq)
 
         assert SequencePoint(10) == SequencePoint('10')
+        assert SequencePoint(SequenceRange(10)) == SequencePoint(10)
 
     def test_from_index(self, glucagon_peptides, glucagon_seq):
         # simple tests
@@ -190,13 +195,13 @@ class TestSequencePoint(BaseTestSequence):
 
         assert -1 < sl5 and -1 <= sl5
 
-    def test__str__(self):
+    def test___str__(self):
         assert str(SequencePoint(10)) == str(10)
 
-    def test__repr__(self):
+    def test___repr__(self):
         assert repr(SequencePoint(10)) == "SequencePoint(10)"
 
-    def test__hash__(self):
+    def test___hash__(self):
         hash(SequencePoint(1))
         my_set = set()
         self._assert_hash(my_set, SequencePoint(1), 0, 1)
@@ -280,6 +285,7 @@ class TestSequenceRange(BaseTestSequence):
         assert self.protein_seq[p.slice] == 'L'
         assert SequenceRange(10) == SequenceRange('10')
         assert SequenceRange(10, 20) == SequenceRange('10:20')
+        assert SequenceRange(10, 20) == SequenceRange(b'10:20')
 
         # make sure that a new object is created if extra annotations are avalible
         with_seq = SequenceRange(self.pep_start, self.pep_stop, full_sequence=self.protein_seq)
@@ -335,6 +341,10 @@ class TestSequenceRange(BaseTestSequence):
         assert p == p_slice == p_slice2
         assert self.pep_seq == self.protein_seq[p_slice.slice.start:p_slice.slice.stop]
         assert self.pep_seq == self.protein_seq[p_slice.slice]
+
+        with pytest.raises(ValueError):
+            # slices has to have step=1 or None
+            SequenceRange.from_slice(slice(2, 10, 2))
 
     def test_from_sequence(self, glucagon_peptides, glucagon_seq):
         expected = SequenceRange(self.pep_start, self.pep_stop, seq=self.pep_seq)
@@ -397,16 +407,17 @@ class TestSequenceRange(BaseTestSequence):
         assert p_tuple < p01 < p10 and p_tuple <= p01 <= p10
         assert p10 > p01 > p_tuple and p10 >= p01 >= p_tuple
 
-    def test__str__(self):
+    def test___str__(self):
+        assert str(SequenceRange(10, 10)) == "10"
         assert str(SequenceRange(10, 20)) == "10:20"
 
-    def test__repr__(self):
+    def test___repr__(self):
         assert repr(SequenceRange(10, 20)) == "SequenceRange(10, 20, seq=None)"
         seq = "A" * 11
         assert repr(SequenceRange(10, 20, seq=seq)) == \
             'SequenceRange(10, 20, seq="{}")'.format(seq)
 
-    def test__add__extra(self):
+    def test___add__extra(self):
         # SequenceRange(1,1) has index = (0, 0), pos = (1, 1)
         assert SequenceRange(1, 1) + SequenceRange(1) == SequenceRange(1, 1)
         assert SequenceRange(1, 1) + SequenceRange(1, 1) == SequenceRange(1, 1)
@@ -415,7 +426,7 @@ class TestSequenceRange(BaseTestSequence):
         assert 1 + SequenceRange(1, 5) == SequenceRange(2, 6)
         assert -1 + SequenceRange(2, 6) == SequenceRange(1, 5)
 
-    def test__sub__extra(self):
+    def test___sub__extra(self):
         # SequenceRange(1) has index = 0, pos = 1
         #  SequenceRange = self.test_class
         assert SequenceRange(1, 1) - SequenceRange(1) == SequenceRange(1, 1)
@@ -437,7 +448,7 @@ class TestSequenceRange(BaseTestSequence):
         with pytest.raises(ValueError):
             bad2.validate()
 
-    def test__math_seq(self):
+    def test_math_seq(self):
         # simple math should retain the seq
         evil = SequenceRange(12, 15, seq="EVIL")
         evil_p2 = SequenceRange(14, 17, seq="EVIL")
@@ -449,7 +460,7 @@ class TestSequenceRange(BaseTestSequence):
         assert (evil + SequenceRange(1, 2)).seq is None
         assert (evil - SequenceRange(1, 2)).seq is None
 
-    def test__iter__(self):
+    def test___iter__(self):
         sr = SequenceRange(5, 10)
         sr_points = list(sr)  # should be equivalent to list(sr.__iter__())
         assert sr.length == len(sr_points)
@@ -458,7 +469,7 @@ class TestSequenceRange(BaseTestSequence):
 
         assert list(SequenceRange(5, 5))[0] == SequencePoint(5)
 
-    def test__hash__(self):
+    def test___hash__(self):
         hash(SequenceRange(1, 2))
         my_set = set()
         self._assert_hash(my_set, SequenceRange(1, 1), 0, 1)
@@ -492,7 +503,7 @@ class TestSequenceRange(BaseTestSequence):
         assert arg not in peptide
         assert cls(arg) not in peptide
 
-    def test__contains__(self):
+    def test___contains__(self):
         peptide = SequenceRange(5, 20)
 
         self._in(SequencePoint, 5, peptide)
@@ -540,6 +551,10 @@ class TestSequenceRange(BaseTestSequence):
             assert _self.contains(item, part=any)
         for item in (item5, item6, item7, item8):
             assert not _self.contains(item, part=any)
+
+        # make sure it answers False to silly things
+        assert not _self.contains('xyz')
+        assert not _self.contains(object())
 
     def test_deprecation(self):
         sr = SequenceRange(1, 2)
@@ -604,14 +619,14 @@ class TestInteroperability:
         assert SequenceRange(1, 2) == SequenceRange(SequencePoint(1), 2)
         assert SequenceRange(1, 2) == SequenceRange(1, SequencePoint(2))
 
-    def test__add__(self):
+    def test___add__(self):
         assert SequenceRange(2, 3) + SequencePoint(2) == SequenceRange(3, 4)
         assert SequencePoint(2) + SequenceRange(2, 3) == SequenceRange(3, 4)
         assert SequenceRange(2, 3) + SequencePoint(2) + 5 == SequenceRange(8, 9)
         assert 5 + SequenceRange(2, 3) + SequencePoint(2) == SequenceRange(8, 9)
         assert SequenceRange(2, 3) + 5 + SequencePoint(2) == SequenceRange(8, 9)
 
-    def test__sub__(self):
+    def test___sub__(self):
         assert SequenceRange(5, 20) - SequencePoint(3) == SequenceRange(3, 18)
         with pytest.raises(ValueError):
             # 20 - 5, 20 - 10 -> 15, 10 = makes no sense!!

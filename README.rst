@@ -30,8 +30,8 @@ There are two Public classes
        - :code:`SequencePoint.index.[start, stop]`: tuple containing
          (:code:`self.start.index`, :code:`self.stop.index`)
 
-Tutorial
-========
+Example Usage
+=============
 
 Example code, lets make glucagon
 
@@ -94,7 +94,8 @@ N-terminal flaking amino acids, let's find it
     >>> glucagon.seq[motif.slice]
     'GRR'
 
-## Math API examples
+Math Examples
+=============
 
 The objects also supports math... So lets try to do the above with math, but first an explanation.
 
@@ -108,7 +109,7 @@ All math on these objects are performed based on the Indexes, thus
     >>> SequenceRange(1, 1) + SequenceRange(1, 1)
     SequenceRange(1, 1, seq=None)
 
-Because `SequencePoint(1).index` is 0 and 0 + 0 = 0
+Because `SequencePoint(1).index` is :math"`0` and :math:`0 + 0 = 0`
 
 The above code is equivalent to the following:
 
@@ -141,7 +142,7 @@ Create new object moving `glp1.stop`
 
 .. code-block:: python
 
-    >>> SequenceRange(1 + glp1.stop, 3 + glp1.stop)
+    >>> SequenceRange(glp1.stop + 1, glp1.stop + 3)
     SequenceRange(128, 130, seq=None)
 
 Create new object via math, here we perform `SequenceRange` + `SequencePoint`

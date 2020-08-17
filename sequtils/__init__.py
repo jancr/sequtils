@@ -71,8 +71,6 @@ class _Positions(_collections.namedtuple("Pos", ("_1", "_2"), rename=True)):
         >>> sr = SequenceRange(5, 10)
         >>> sr.start
         SequencePoint(5)
-        >>> sr.index
-        (4, 9)
         >>> sr.start.index  # <-- new syntax
         4
     """
@@ -194,18 +192,18 @@ class BaseSequenceLocation:
     # comparison dunders
     def __lt__(self, other):
         if self._comparison_cast(other):
-            try:
-                return self.pos < self.__class__(other, validate=False).pos
-            except ValueError:
-                raise TypeError("cannot compare type {} and {}".format(type(self), type(other)))
+            #  try:
+            return self.pos < self.__class__(other, validate=False).pos
+            #  except ValueError:
+            #      raise TypeError("cannot compare type {} and {}".format(type(self), type(other)))
         return NotImplemented
 
     def __eq__(self, other):
         if self._comparison_cast(other):
-            try:
-                return self.pos == self.__class__(other, validate=False).pos
-            except (ValueError, TypeError):
-                pass
+            #  try:
+            return self.pos == self.__class__(other, validate=False).pos
+            #  except (ValueError, TypeError):
+            #      pass
         return NotImplemented
 
     # other dunders
@@ -241,22 +239,31 @@ class SequencePoint(BaseSequenceLocation):
         'L'
     """
 
-    def __new__(cls, arg, *args, **kwargs):
-        if isinstance(arg, cls):
-            # if arg is already of the correct type, then keep it because subclasses are mutable
-            # just like other immutables: x = 213124512421312; x is int(x)
-            return arg
+    def __new__(cls, position, *args, **kwargs):
+        if isinstance(position, cls.mro()[1]):  # isinstance of parent
+            if isinstance(position, cls):
+                # if arg is already of the correct type, then keep it because subclasses are
+                # mutable just like other immutables: x = 213124512421312; x is int(x)
+                return position
+            elif isinstance(position, SequenceRange):
+                # is Position is a SequenceRange, then position.start is already a SequencePoint
+                if len(position) == 1:
+                    return position.start
+                raise TypeError("can only Convert {} to {} if len({}) = 1".format(
+                    type(position), cls, type(position)))
         return super().__new__(cls)
 
     def __init__(self, position: _point_types, *, validate=True):
         if isinstance(position, self.__class__.mro()[1]):  # isinstance of parent
-            if isinstance(position, self.__class__):
-                return
-            if isinstance(position, SequenceRange):
-                if len(position) != 1:
-                    raise TypeError("can only Convert {} to {} if len({}) = 1".format(
-                        type(position), type(self), type(position)))
-                position = position.start
+            return
+            #  if isinstance(position, (self.__class__, SequenceRange)):
+            #      return
+            #  if isinstance(position, SequenceRange):
+            #      return
+            #      if len(position) != 1:
+            #          raise TypeError("can only Convert {} to {} if len({}) = 1".format(
+            #              type(position), type(self), type(position)))
+            #      position = position.start.pos
 
         self._pos = int(position)
         if validate:
@@ -410,7 +417,7 @@ class SequenceRange(BaseSequenceLocation):
         if isinstance(stop, (str, bytes)):
             stop = int(stop)
         elif stop is None:
-            stop = self._resolve_stop(start, stop, length, seq)
+            stop = self._resolve_none_stop(start, stop, length, seq)
 
         self._seq = seq
 
@@ -430,17 +437,14 @@ class SequenceRange(BaseSequenceLocation):
         self._slice = slice(self.start.pos - 1, self.stop.pos)
         self._seq = self._get_seq(seq, full_sequence)
 
-    def _resolve_stop(self, start, stop, length, seq):
-        if isinstance(stop, (str, bytes)):
-            return int(stop)
-        elif stop is None:
-            if length is not None:
-                stop = self._stop_from_start_and_length(start, length)
-            elif seq is not None:
-                stop = self._stop_from_start_and_length(start, len(seq))
-            else:
-                stop = start
-        return stop
+    def _resolve_none_stop(self, start, stop, length, seq):
+        #  if isinstance(stop, (str, bytes)):
+        #      return int(stop)
+        if length is not None:
+            return self._stop_from_start_and_length(start, length)
+        elif seq is not None:
+            return self._stop_from_start_and_length(start, len(seq))
+        return start
 
     @classmethod
     def _valid_range(cls, positions):
@@ -454,20 +458,18 @@ class SequenceRange(BaseSequenceLocation):
 
     @classmethod
     def _parse_range(cls, start, stop):
+        if stop is not None:
+            raise ValueError(
+                "if start is a Sequence (e.g (2, 5), then stop has to be None\n"
+                " - Thise is ok : SequenceRange(2, 5)\n"
+                " -             : SequenceRange((2, 5))\n"
+                " - but not this: SequenceRange((2, 5), 5)\n")
         if isinstance(start, bytes):
             start = start.decode('utf8')
-        if isinstance(start, str):
-            if cls._str_separator in start:
-                return map(int, start.split(cls._str_separator))
-            return int(start), stop
+        if isinstance(start, str) and cls._str_separator in start:
+            return map(int, start.split(cls._str_separator))
         elif isinstance(start, _Sequence) and len(start) == 2:
-            if stop is not None:
-                raise ValueError(
-                    "if start is a Sequence (e.g (2, 5), then stop has to be None\n"
-                    " - Thise is ok : SequenceRange(2, 5)\n"
-                    " -             : SequenceRange((2, 5))\n"
-                    " - but not this: SequenceRange((2, 5), 5)\n")
-            return start[:2]
+            return start
         raise ValueError("{} cannot be understood by the constructor".format(start))
 
     # alternate constructors
@@ -487,7 +489,7 @@ class SequenceRange(BaseSequenceLocation):
     @classmethod
     def from_center_and_window(cls, center: _Union[int, SequencePoint], window: int,
                                max_length: _point_types=_math.inf, **kwargs):
-        """
+        r"""
         Alternative Constructur, :math:`center\pm{}window`
 
         :param center: central position
@@ -646,8 +648,8 @@ class SequenceRange(BaseSequenceLocation):
         except (ValueError, TypeError):
             try:
                 return part(map(self._contains, SequenceRange(item)))
-            except ValueError:
-                return False
+            except (ValueError, TypeError):
+                pass
         return False
 
     def _contains(self, sequence_point):
@@ -688,11 +690,11 @@ class SequenceRange(BaseSequenceLocation):
 
     def _eq_helper(self, other, *, compare_seq=True):
         if self._comparison_cast(other):
-            try:
-                other = self.__class__(other, validate=False)
-                return self.pos == other.pos and (not compare_seq or self.seq == other.seq)
-            except (ValueError, TypeError):
-                pass
+            #  try:
+            other = self.__class__(other, validate=False)
+            return self.pos == other.pos and (not compare_seq or self.seq == other.seq)
+            #  except (ValueError, TypeError):
+            #      pass
         return NotImplemented
 
     @classmethod

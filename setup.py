@@ -19,6 +19,7 @@ cmdclass = { 'test': PyTest }
 
 # build documentation if sphinx is avalible
 command_options = {}
+name='sequtils'
 try:
     from sphinx.setup_command import BuildDoc
 except ImportError:
@@ -40,9 +41,17 @@ else:
 with open("README.rst", "r") as fh:
     long_description = fh.read()
     setuptools.setup(
-        name='sequtils',
+        name=name,
         version=version,
         scripts=[],
+        extras_require={
+            'dev': [
+                'pytest',
+                #  'pytest-pep8',
+                'pytest-cov',
+                'sphinx-autodoc-typehints',
+                'sphinx-rtd-theme',
+            ]},
         author="Jan Christian Refsgaard",
         author_email="jancrefsgaard@gmail.com",
         description="Biological Sequence Utility Scripts",
