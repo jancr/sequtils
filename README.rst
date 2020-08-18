@@ -45,7 +45,7 @@ Example code, lets make glucagon
     >>> glucagon
     SequenceRange(1, 180, seq="MKTIY..ITDKK")
 
-So we now have a protein object, where the stop was inferred from the sequence, `glp1` is a peptide
+So we now have a protein object, where the stop was inferred from the sequence, :code:`glp1` is a peptide
 
 .. code-block:: python
 
@@ -53,10 +53,10 @@ So we now have a protein object, where the stop was inferred from the sequence, 
     >>> glp1
     SequenceRange(98, 127, seq="HAEGTFTSDVSSYLEGQAAKEFIAWLVKGR")
 
-A `SequenceRange` from 98 to 127 is created, with the peptide sequence inferred
+A :code:`SequenceRange` from 98 to 127 is created, with the peptide sequence inferred
 from the protein sequence
 
-Lets see the `start` and `stop` attributes of the peptide:
+Lets see the :code:`start` and :code:`stop` attributes of the peptide:
 
 .. code-block:: python
 
@@ -109,7 +109,7 @@ All math on these objects are performed based on the Indexes, thus
     >>> SequenceRange(1, 1) + SequenceRange(1, 1)
     SequenceRange(1, 1, seq=None)
 
-Because `SequencePoint(1).index` is :math"`0` and :math:`0 + 0 = 0`
+Because :code:`SequencePoint(1).index` is :math:`0` and :math:`0 + 0 = 0`
 
 The above code is equivalent to the following:
 
@@ -128,7 +128,7 @@ The math is super intuitive for scalars
     >>> SequenceRange(2, 5, seq="EVIL") + 2
     SequenceRange(4, 7, seq="EVIL")
 
-It also works for non scalars, but then seq becomes `None` because the length has changed
+It also works for non scalars, but then seq becomes :code:`None` because the length has changed
 
 .. code-block:: python
 
@@ -136,16 +136,16 @@ It also works for non scalars, but then seq becomes `None` because the length ha
     SequenceRange(4, 10, seq=None)
 
 If you add numbers or tuples, the code will assume that those are indexes,
-thus the following 3 all gives the GRR motif by moving `glp1.stop` by `(1, 3)`
+thus the following 3 all gives the GRR motif by moving :code:`glp1.stop` by :code:`(1, 3)`
 
-Create new object moving `glp1.stop`
+Create new object moving :code:`glp1.stop`
 
 .. code-block:: python
 
     >>> SequenceRange(glp1.stop + 1, glp1.stop + 3)
     SequenceRange(128, 130, seq=None)
 
-Create new object via math, here we perform `SequenceRange` + `SequencePoint`
+Create new object via math, here we perform :code:`SequenceRange` + :code:`SequencePoint`
 
 .. code-block:: python
 
@@ -155,9 +155,9 @@ Create new object via math, here we perform `SequenceRange` + `SequencePoint`
     >>> glp1.stop + SequenceRange(2, 4)
     SequenceRange(128, 130, seq=None)
 
-Convert `SequencePoint` to `SequenceRange` and then add an offset tuple, **note**
-that `SequencePoint` only knows 'scalar' math, so we have to ether convert it
-to a `SequenceRange` as here, or convert the `(1, 3)` tuple to a `SequnceRange`
+Convert :code:`SequencePoint` to :code:`SequenceRange` and then add an offset tuple, **note**
+that :code:`SequencePoint` only knows 'scalar' math, so we have to ether convert it
+to a :code:`SequenceRange` as here, or convert the :code:`(1, 3)` tuple to a :code:`SequnceRange`
 as we did above
 
 .. code-block:: python

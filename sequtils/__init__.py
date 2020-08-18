@@ -526,8 +526,20 @@ class SequenceRange(BaseSequenceLocation):
         """
         Alternative Constructor, from python slice, or slice coordinates
 
-        :param start_sclice
+        :param start_slice: slice object or where to slice from
+        "param stop_slice: where to slice to or :code:`None` of :code:`start_slice` is a
+        :code:`slice`
 
+        .. code-block:: python
+
+            >>> seq = "ELVISLIVES"
+            >>> seq[5:9]
+            'LIVE'
+            >>> peptide = SequenceRange.from_slice(5, 9)
+            >>> peptide.slice
+            slice(5, 9, None)
+            >>> seq[peptide.slice]
+            'LIVE'
         """
 
         if isinstance(start_slice, slice):
