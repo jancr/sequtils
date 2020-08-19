@@ -142,6 +142,15 @@ class TestSequencePoint(BaseTestSequence):
         assert SequencePoint(10) == SequencePoint('10')
         assert SequencePoint(SequenceRange(10)) == SequencePoint(10)
 
+    #  def test_init2(self):
+    #      a = SequenceRange(10)
+    #  
+    #      print('------------')
+    #      b = SequencePoint(a)
+    #      print('------------')
+    #      c = SequencePoint(10)
+    #      assert b == c
+
     def test_from_index(self, glucagon_peptides, glucagon_seq):
         # simple tests
         index = self.protein_seq.index(self.pep_seq)
@@ -156,6 +165,9 @@ class TestSequencePoint(BaseTestSequence):
             # if len(seq) == 1, then start = stop, thus "+ len(seq) - 1"
             stop = SequencePoint.from_index(index + len(seq) - 1)
             self._assert(start, stop, seq, glucagon_seq)
+
+        with pytest.raises(ValueError):
+            SequencePoint.from_index(SequencePoint(10))
 
     def test_comparisons(self):
         sl = SequencePoint(1)
@@ -320,6 +332,9 @@ class TestSequenceRange(BaseTestSequence):
             p = SequenceRange.from_index(glucagon_seq.index(seq), length=len(seq))
             self._assert(p, seq, glucagon_seq)
 
+        with pytest.raises(ValueError):
+            SequenceRange.from_index(SequenceRange(10), length=20)
+
     def test_from_index(self, glucagon_peptides, glucagon_seq):
         pep_start_index = 5
         pep_stop_index = 8
@@ -331,6 +346,14 @@ class TestSequenceRange(BaseTestSequence):
         assert p == p_index
         assert self.pep_seq[0] == self.protein_seq[p_index.start.index]
         assert self.pep_seq[-1] == self.protein_seq[p_index.stop.index]
+
+        with pytest.raises(ValueError):
+            SequenceRange.from_index(SequenceRange(10), 10)
+        with pytest.raises(ValueError):
+            SequenceRange.from_index(10, SequenceRange(10))
+        with pytest.raises(ValueError):
+            SequenceRange.from_index(SequenceRange(10), SequenceRange(10))
+
 
     def test_from_slices(self, glucagon_peptides, glucagon_seq):
         pep_start_slice = 5
@@ -625,6 +648,11 @@ class TestInteroperability:
         assert SequenceRange(2, 3) + SequencePoint(2) + 5 == SequenceRange(8, 9)
         assert 5 + SequenceRange(2, 3) + SequencePoint(2) == SequenceRange(8, 9)
         assert SequenceRange(2, 3) + 5 + SequencePoint(2) == SequenceRange(8, 9)
+
+    def test2a(self):
+        assert SequencePoint(2) + SequenceRange(2, 2) == 3
+    def test2b(self):
+        assert SequenceRange(2) + SequencePoint(2) == 3
 
     def test___sub__(self):
         assert SequenceRange(5, 20) - SequencePoint(3) == SequenceRange(3, 18)
