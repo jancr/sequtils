@@ -12,32 +12,27 @@ class BaseSequenceLocation(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def pos(self):
-        pass
-        #  raise NotImplementedError("Please Implement this method")
+        raise NotImplementedError("Please Implement this method")
 
     @property
     @abc.abstractmethod
     def index(self):
-        pass
-        #  raise NotImplementedError("Please Implement this method")
+        raise NotImplementedError("Please Implement this method")
 
     @property
     @abc.abstractmethod
     def slice(self):
-        pass
-        #  raise NotImplementedError("Please Implement this method")
+        raise NotImplementedError("Please Implement this method")
 
     # abstract methods
     @abc.abstractmethod
     def _join(self, other, operator):
         "helper methood, needed to make __add__ and __sub__ work"
-        pass
-        #  raise NotImplementedError("Please Implement this method")
+        raise NotImplementedError("Please Implement this method")
 
     @abc.abstractmethod
     def validate(self):
-        pass
-        #  raise NotImplementedError("Please Implement this method")
+        raise NotImplementedError("Please Implement this method")
 
     def is_valid(self):
         try:
@@ -85,7 +80,7 @@ class BaseSequenceLocation(metaclass=abc.ABCMeta):
         else:
             try:
                 other = cls.from_index(other, validate=False)
-            except TypeError:
+            except (TypeError, ValueError):
                 return NotImplemented
         return self._join(other, operator)
 

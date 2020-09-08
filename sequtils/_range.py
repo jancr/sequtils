@@ -229,7 +229,7 @@ class SequenceRange(BaseSequenceLocation):
             return map(int, start.split(cls._str_separator))
         elif isinstance(start, Sequence) and len(start) == 2:
             return start
-        raise ValueError("{} cannot be understood by the constructor".format(start))
+        raise TypeError("{} cannot be understood by the constructor".format(start))
 
     # alternate constructors
     @classmethod

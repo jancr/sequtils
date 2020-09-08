@@ -2,6 +2,7 @@
 # core imports
 import os
 import pickle
+import math
 
 # 3rd party imports
 import pytest
@@ -44,9 +45,29 @@ def test_fixtures(glucagon_peptides, glucagon_seq):
     assert len(glucagon_seq) == 60 * 3  # full std fasta lines
 
 
+#  @pytest.fixture(scope='class')
+#  def elvislives(request):
+#      # setup code
+#      cls = request.cls
+#  
+#      # inject class variables
+#      #              1234567890
+#      cls.protein_seq = "ELVISLIVES"
+#      #                   ____
+#      cls.pep_seq = "LIVE"
+#      cls.pep_start = 6
+#      cls.pep_stop = 9
+#  
+#  
+#      yield
+#      # teardown code
+
+
+
 ########################################
 # Base class for testing
 ########################################
+#  @pytest.mark.usefixtures('elvislives')
 class BaseTestSequence:
     #              1234567890
     protein_seq = "ELVISLIVES"
@@ -73,6 +94,10 @@ class BaseTestSequence:
         assert cls(2) + cls(2) == cls(3)  # because 1 + 1 = 2
         assert 10 + cls(2) == cls(12)  # because 10 + 1 = 11
         assert cls(10) + cls(1) == cls(10)  # because 9 + 0 = 9
+        with pytest.raises(Exception):
+            cls(10) + math.nan
+        with pytest.raises(Exception):
+            math.nan + cls(10)
 
     def test___sub__(self):
         # cls(1) has index = 0, pos = 1
@@ -92,6 +117,10 @@ class BaseTestSequence:
             (SequencePoint(2) - SequencePoint(3)).validate()
         with pytest.raises(ValueError):
             (1 - SequencePoint(3)).validate()
+        with pytest.raises(Exception):
+            cls(10) - math.nan
+        with pytest.raises(Exception):
+            math.nan - cls(10)
 
     def test_pickle(self):
         sr = SequenceRange(1, 5)
@@ -106,106 +135,183 @@ class BaseTestSequence:
 ########################################
 # Tests for SequencePoint
 ########################################
+#  @pytest.fixture(scope='class')
+#  def point_helper_methods(request):
+#      # inject 'parent'= to the innerclasses, so they can access it
+#      
+#      # wierd gaurd because 4 level nested classes get's the fixture applied
+#      # but 3 level nested does not, which is why I need to inject :S
+#      #  if isinstance(request.cls, BaseTestSequence):
+#      request.cls.TestConstructor.parent = request.cls
+#      yield
+
+
+#  @pytest.mark.usefixtures('elvislives', 'point_helper_methods')
 class TestSequencePoint(BaseTestSequence):
     test_class = SequencePoint
 
-    def _assert(self, start, stop, pep_seq, protein_seq):
-        assert protein_seq[start.index] == pep_seq[0]
-        assert protein_seq[start.index + 1] == pep_seq[1]
+    #  def test_a(self):
+    #      assert 1 == 2
 
-        assert protein_seq[stop.index] == pep_seq[-1]
-        assert protein_seq[stop.index - 1] == pep_seq[-2]
+    #  @pytest.mark.usefixtures('elvislives', 'point_helper_methods')
+    class TestConstructor():
+        @classmethod
+        def check_boundaries(cls, start, stop, pep_seq, protein_seq):
+            assert protein_seq[start.index] == pep_seq[0]
+            assert protein_seq[start.index + 1] == pep_seq[1]
+        
+            assert protein_seq[stop.index] == pep_seq[-1]
+            assert protein_seq[stop.index - 1] == pep_seq[-2]
+        
+            assert protein_seq[start.slice] == pep_seq[0]
+            assert protein_seq[stop.slice] == pep_seq[-1]
+        
+            assert protein_seq[start.slice.start:stop.slice.stop] == pep_seq
 
-        assert protein_seq[start.slice] == pep_seq[0]
-        assert protein_seq[stop.slice] == pep_seq[-1]
+        @property
+        def parent(self):
+            return TestSequencePoint
 
-        assert protein_seq[start.slice.start:stop.slice.stop] == pep_seq
+        def test_sequence_range_cannot_start_at_zero(self):
+            with pytest.raises(ValueError):
+                SequencePoint(0)
 
-    def test_init(self, glucagon_peptides, glucagon_seq):
-        # simple tests
-        start = SequencePoint(self.pep_start)
-        stop = SequencePoint(self.pep_stop)
-        self._assert(start, stop, self.pep_seq, self.protein_seq)
+        def test_sequence_range_cannot_be_negative(self):
+            with pytest.raises(ValueError):
+                SequencePoint(-10)
 
-        with pytest.raises(ValueError):
-            SequencePoint(0)
-        with pytest.raises(ValueError):
-            SequencePoint(-10)
+        def test_constructure_returns_self_if_arg_is_of_same_type(self):
+            assert SequencePoint(SequencePoint(1)) == SequencePoint(1)
+        
+        def test_that_live_is_cut_from_the_peptide_elvislivs(self):
+            start = SequencePoint(self.parent.pep_start)
+            stop = SequencePoint(self.parent.pep_stop)
+            self.check_boundaries(start, stop, self.parent.pep_seq, self.parent.protein_seq)
 
-        # ensure it can cast itself, just like int(int(1)) works
-        assert SequencePoint(SequencePoint(1)) == SequencePoint(1)
-
-        # all peptides
-        for (start, stop, seq) in glucagon_peptides:
-            self._assert(SequencePoint(start), SequencePoint(stop), seq, glucagon_seq)
-
-        assert SequencePoint(10) == SequencePoint('10')
-        assert SequencePoint(SequenceRange(10)) == SequencePoint(10)
-
-    #  def test_init2(self):
-    #      a = SequenceRange(10)
-    #  
-    #      print('------------')
-    #      b = SequencePoint(a)
-    #      print('------------')
-    #      c = SequencePoint(10)
-    #      assert b == c
-
-    def test_from_index(self, glucagon_peptides, glucagon_seq):
-        # simple tests
-        index = self.protein_seq.index(self.pep_seq)
-        start = SequencePoint.from_index(index)
-        stop = SequencePoint(index + len(self.pep_seq))
-        self._assert(start, stop, self.pep_seq, self.protein_seq)
-
-        # all peptides
-        for (start, stop, seq) in glucagon_peptides:
-            index = glucagon_seq.index(seq)
+        def test_from_index_that_live_is_cut_from_peptide_elvislives_using_indexes(self):
+            index = self.parent.protein_seq.index(self.parent.pep_seq)
             start = SequencePoint.from_index(index)
             # if len(seq) == 1, then start = stop, thus "+ len(seq) - 1"
-            stop = SequencePoint.from_index(index + len(seq) - 1)
-            self._assert(start, stop, seq, glucagon_seq)
+            stop = SequencePoint.from_index(index + len(self.parent.pep_seq) - 1)
+            self.check_boundaries(start, stop, self.parent.pep_seq, self.parent.protein_seq)
 
-        with pytest.raises(ValueError):
-            SequencePoint.from_index(SequencePoint(10))
+        def test_boundary_of_glucagons_peptides(self, glucagon_peptides, glucagon_seq):
+            for (start, stop, seq) in glucagon_peptides:
+                start = SequencePoint(start)
+                stop = SequencePoint(stop)
+                self.check_boundaries(start, stop, seq, glucagon_seq)
 
-    def test_comparisons(self):
-        sl = SequencePoint(1)
-        sl1 = SequencePoint(1)
-        sl5 = SequencePoint(5)
-        sl10 = SequencePoint(10)
+        def test_boundary_of_glucagons_peptides_using_indexes(self, glucagon_peptides,
+                                                              glucagon_seq):
+            # all peptides
+            for (start, stop, seq) in glucagon_peptides:
+                index = glucagon_seq.index(seq)
+                start = SequencePoint.from_index(index)
+                # if len(seq) == 1, then start = stop, thus "+ len(seq) - 1"
+                stop = SequencePoint.from_index(index + len(seq) - 1)
+                self.check_boundaries(start, stop, seq, glucagon_seq)
+        def test_can_be_created_from_string(self):
+            assert SequencePoint(10) == SequencePoint('10')
 
-        # equal / unequal
-        assert sl == sl1
-        assert sl == 1
-        assert sl != "1"
-        assert 1 == sl
-        assert sl != sl5
-        assert sl != 5
-        assert 5 != sl
-        assert sl is not None
-        assert sl not in (None, 66)
+        def test_can_be_created_from_byte(self):
+            assert SequencePoint(10) == SequencePoint(b'10')
 
-        assert not 5 < sl5
-        assert not 5 > sl5
-        assert 5 <= sl5
-        assert 5 >= sl5
+        def test_from_index_fails_when_called_with_an_instantiated_object(self):
+            with pytest.raises(ValueError):
+                SequencePoint.from_index(SequencePoint(10))
 
-        with pytest.raises(TypeError):
-            sl < "Wrong type!!"
-        with pytest.raises(TypeError):
-            "Wrong type!!" < sl
-        with pytest.raises(TypeError):
-            sl > "Wrong type!!"
+    class TestComparisons:
+        class TestEqualsWhen:
+            def test_created_from_the_same_data(self):
+                assert SequencePoint(1) == SequencePoint(1)
+                assert SequencePoint(5) == SequencePoint(5)
 
-        assert sl1 < sl5 < sl10 and sl1 <= sl5 <= sl10
-        assert sl10 > sl5 > sl1 and sl10 >= sl5 >= sl1
-        assert sl1 < 5 < sl10 and sl1 <= 5 <= sl10
-        assert sl10 > 5 > sl1 and sl10 >= 5 >= sl1
-        assert 1 < sl5 < 10 and 1 <= sl5 <= 10
-        assert 10 > sl5 > 1 and 10 >= sl5 >= 1
+            def test_compared_to_integer(self):
+                assert SequencePoint(1) == 1
+                assert SequencePoint(5) == 5
 
-        assert -1 < sl5 and -1 <= sl5
+        class TestNotEqualWhen:
+            def test_compared_to_string_or_byte(self):
+                assert SequencePoint(1) != "1"
+                assert SequencePoint(1) != b'1'
+                assert "1" != SequencePoint(1)
+                assert b'1' != SequencePoint(1)
+
+            def test_created_from_different_data(self):
+                assert SequencePoint(1) != SequencePoint(5)
+                assert SequencePoint(5) != SequencePoint(1)
+
+            def test_equal_or_not_equal_comparison_non_numeric_string(self):
+                    assert not  "Wrong type!!" == SequencePoint(1)
+                    assert not SequencePoint(1) == "Wrong type!!"
+                    assert "Wrong type!!" != SequencePoint(1)
+                    assert SequencePoint(1) != "Wrong type!!"
+        
+        class TestContainsWhenTrue:
+            def test_it_is_inside_a_container(self):
+                assert SequencePoint(1) in (5, SequencePoint(1))
+            def test_its_numeric_representation_is_in_a_container(self):
+                assert SequencePoint(1) in (5, 1)
+            def when_its_numeric_representation_is_searched_for_in_a_container_containing_it(self):
+                assert 1 in (5, SequencePoint(1))
+
+        class TestContainsWhenFalse:
+            def test_it_is_not_inside_a_container(self):
+                assert SequencePoint(1) not in (5, SequencePoint(10))
+            def test_its_numeric_representation_is_not_in_a_container(self):
+                assert SequencePoint(1) not in (5, 10)
+            def when_its_a_number_different_from_its_numeric_representation_is_searched(self):
+                assert 1 not in (5, SequencePoint(10))
+
+        class TestExceptionRaisedWhen:
+            def test_less_or_greather_than_comarison_to_string(self):
+                with pytest.raises(TypeError):
+                    SequencePoint(1) < "Wrong type!!"
+                with pytest.raises(TypeError):
+                    "Wrong type!!" < SequencePoint(1)
+                with pytest.raises(TypeError):
+                    SequencePoint(1) > "Wrong type!!"
+                with pytest.raises(TypeError):
+                    "Wrong type!!" > SequencePoint(1)
+
+        class TestCrocodileOperators:
+            def test_point_5_is_equal_to_5_and_not_greater_or_smaller(self):
+                assert not 5 < SequencePoint(5)
+                assert not 5 > SequencePoint(5)
+                assert not SequencePoint(5) < 5
+                assert not SequencePoint(5) > 5
+
+                assert 5 <= SequencePoint(5)
+                assert 5 >= SequencePoint(5)
+                assert SequencePoint(5) <= 5
+                assert SequencePoint(5) >= 5
+
+            def test_1_is_less_than_5_which_is_less_than_9(self):
+                sp1 = SequencePoint(1)
+                sp5 = SequencePoint(5)
+                sp9 = SequencePoint(9)
+                assert sp1 < sp5 < sp9 
+                assert sp9 > sp5 > sp1 
+                assert sp1 < 5 < sp9 
+                assert sp9 > 5 > sp1 
+                assert 1 < sp5 < 9 
+                assert 9 > sp5 > 1 
+
+            def test_1_is_less_than_or_equal_to_5_which_is_less_than_or_equal_9(self):
+                sp1 = SequencePoint(1)
+                sp5 = SequencePoint(5)
+                sp9 = SequencePoint(9)
+                assert sp1 <= sp5 <= sp9
+                assert sp9 >= sp5 >= sp1
+                assert sp1 <= 5 <= sp9
+                assert sp9 >= 5 >= sp1
+                assert 1 <= sp5 <= 9
+                assert 9 >= sp5 >= 1
+
+            def test_valid_points_are_larger_than_negative_numbers(self):
+                assert -1 < SequencePoint(5)
+                assert -1 <= SequencePoint(5)
+
 
     def test___str__(self):
         assert str(SequencePoint(10)) == str(10)
@@ -213,24 +319,46 @@ class TestSequencePoint(BaseTestSequence):
     def test___repr__(self):
         assert repr(SequencePoint(10)) == "SequencePoint(10)"
 
-    def test___hash__(self):
-        hash(SequencePoint(1))
-        my_set = set()
-        self._assert_hash(my_set, SequencePoint(1), 0, 1)
-        self._assert_hash(my_set, SequencePoint(1), 1, 1)
-        self._assert_hash(my_set, SequencePoint(2), 1, 2)
-        self._assert_hash(my_set, SequencePoint(2), 2, 2)
-        self._assert_hash(my_set, SequencePoint(3), 2, 3)
+    class TestHash:
+        @property
+        def parent(self):
+            return TestSequencePoint()
 
-    def test_immutability(self):
-        s = SequencePoint(1)
-        with pytest.raises(AttributeError):
-            s.pos = 2
-        with pytest.raises(AttributeError):
-            s.index = 2
+        def test_is_hashable(self):
+            hash(SequencePoint(1))
 
-        assert s is SequencePoint(s)
-        assert s is not SequencePoint(1)
+        def test_adding_1_2_and_3_twice_to_a_set_only_changes_length_by_3(self):
+            my_set = set()
+            self.parent._assert_hash(my_set, SequencePoint(1), 0, 1)
+            self.parent._assert_hash(my_set, SequencePoint(1), 1, 1)
+            self.parent._assert_hash(my_set, SequencePoint(2), 1, 2)
+            self.parent._assert_hash(my_set, SequencePoint(2), 2, 2)
+            self.parent._assert_hash(my_set, SequencePoint(3), 2, 3)
+
+        def test_hashes_to_the_same_as_integers(self):
+            assert hash(SequencePoint(1)) == hash(1)
+            assert hash(SequencePoint(5)) == hash(5)
+            assert hash(SequencePoint(9)) == hash(9)
+
+        def test_point_1_and_1_hits_the_same_in_a_dictionary_lookup(self):
+            lookup = {1: 1, SequencePoint(5): 5}
+            assert lookup[SequencePoint(1)] == lookup[1] == 1
+            assert lookup[SequencePoint(5)] == lookup[5] == 5
+
+    class TestImutability:
+        s = SequencePoint(5)
+
+        def test_changing_pos_raises_attributeerror(self):
+            with pytest.raises(AttributeError):
+                self.s.pos = 5
+
+        def test_changing_index_raises_attributeerror(self):
+            with pytest.raises(AttributeError):
+                self.s.index = 5
+
+        def test_constructor_returns_first_argument_if_it_is_already_an_instance(self):
+            assert self.s is SequencePoint(self.s)
+            assert self.s is not SequencePoint(5)
 
 
 ########################################
@@ -439,6 +567,9 @@ class TestSequenceRange(BaseTestSequence):
         seq = "A" * 11
         assert repr(SequenceRange(10, 20, seq=seq)) == \
             'SequenceRange(10, 20, seq="{}")'.format(seq)
+
+        assert repr(SequenceRange(10, 20).pos) == "(10, 20)"
+        assert repr(SequenceRange.from_index(10, 20).index) == "(10, 20)"
 
     def test___add__extra(self):
         # SequenceRange(1,1) has index = (0, 0), pos = (1, 1)
@@ -664,3 +795,10 @@ class TestInteroperability:
 
     def test_wierd_stuff(self):
         assert (SequenceRange(10, 20) - 15).contains(2)
+
+    def test_can_create_a__point_from_range_if_start_and_stop_are_the_same(self):
+        assert SequencePoint(SequenceRange(10)) == SequencePoint(10)
+
+    def test_can_not_create_a_sequence_from_range_if_start_and_stop_are_different(self):
+        with pytest.raises(TypeError):
+            assert SequencePoint(SequenceRange(10, 12))
