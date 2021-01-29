@@ -74,34 +74,38 @@ class _Index(_Positions):
 # Type definitons for typehints, have to be defined after BaseSequenceLocation
 # SequencePoint has to be a string because otherwise: SequencePoint was refrence before defined
 class SequenceRange(BaseSequenceLocation):
-    """
+    r"""
     helper class that converts between "normal" sequence numbers and pythons equivalent
 
     sequence cordinate, counting from 1, with inclusive stop
     viable calls to the constructor includes:
-        | * :code:`SequenceRange(1, 2)`
-        | * :code:`SequenceRange(SequencePoint(1), SequencePoint(2))`
-        | * :code:`SequenceRange((1, 2))`
-        | * :code:`SequenceRange(SequenceRange(1, 2))`
+
+        * :code:`SequenceRange(1, 2)`
+        * :code:`SequenceRange(SequencePoint(1), SequencePoint(2))`
+        * :code:`SequenceRange((1, 2))`
+        * :code:`SequenceRange(SequenceRange(1, 2))`
 
     A "start" has to be always provided, but stop can be infered from the other arguments
     thus the following creates the same object:
-        | * :code:`SequenceRange(1, 3)`
-        | * :code:`SequenceRange((1, 3))`
-        | * :code:`SequenceRange(1, seq="ABC")`
-        | * :code:`SequenceRange(1, length=3)`
 
-    :param start:
-        | Human readable beginning of sequence
-        | Can be of type:
-        | * any type that can be convereted to int, 
-        | * any :code:`collections.abc.Sequence` of length 2 
-        | * any :code:`SequenceRange` or :code:`SequencePoint`
+        * :code:`SequenceRange(1, 3)`
+        * :code:`SequenceRange((1, 3))`
+        * :code:`SequenceRange(1, seq="ABC")`
+        * :code:`SequenceRange(1, length=3)`
+
+    :param start: Human readable beginning of sequence:
+        
+        * any type that can be convereted to int, 
+        * any :code:`collections.abc.Sequence` of length 2 
+        * any :code:`SequenceRange` or :code:`SequencePoint`
+
     :param stop:
-        | Human readable end of sequence, can be infered from :code:`seq` and :code:`length`
-        | Can be of type:
+        Human readable end of sequence, can be infered from :code:`seq` and
+        :code:`length`:
+
         * any type that can be convereted to int, or :code:`SequencePoint`
         * None it can be infered from :code:`start`, :code:`seq` or :code:`length`.
+
     :param seq:
         The biological sequence usally peptide or motif (eg :code:`CAT` or :code:`ELVISLIVES`)
     :param full_sequence:
@@ -109,13 +113,15 @@ class SequenceRange(BaseSequenceLocation):
         :code:`full_sequence`
     :param length: length of the sequence
     :param validate:
-        | raise exception if stop < start, is often set to false internally when performing math
-            because the two lines are equivalent:
+        raise exception if stop < start, is often set to false internally
+        when performing math because the two lines are equivalent:
+
         .. code-block:: python
 
             SequenceRange(5, 10) - (3, 2)
             SequenceRange(5, 10) - SequenceRange.from_index(3, 2, validate=False)
-    :type start:
+
+    :type start: str, int, :code:`collections.abc.Sequence` of length 2 or SequencePoint
     :type stop: str, int or SequencePoint
     :type seq: str
     :type full_sequence: str
@@ -290,8 +296,8 @@ class SequenceRange(BaseSequenceLocation):
         Alternative Constructor, from python slice, or slice coordinates
 
         :param start_slice: slice object or where to slice from
-        "param stop_slice: where to slice to or :code:`None` of :code:`start_slice` is a
-        :code:`slice`
+        :param stop_slice: where to slice to or :code:`None` of :code:`start_slice` is a
+                           :code:`slice`
 
         .. code-block:: python
 
@@ -326,7 +332,7 @@ class SequenceRange(BaseSequenceLocation):
             >>> SequenceRange.from_sequence('EVILELVISLIVES', 'ELVIS')
             SequenceRange(5, 9, seq="ELVIS")
 
-        **Warning:** if code:`sequence` is found multiple times in :code:`full_sequence`, then the
+        **Warning:** if :code:`sequence` is found multiple times in :code:`full_sequence`, then the
         first occurance will be returned
         """
 
